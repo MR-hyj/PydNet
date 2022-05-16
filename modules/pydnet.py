@@ -189,7 +189,7 @@ class PydNet(nn.Module):
         return hybrid_affinity
 
 
-    def forward(self, data, num_iter: int = 1):
+    def forward(self, data, num_iter: int = 1, noise_type: str = None):
         """Forward pass for PydNet
 
         Args:
@@ -209,6 +209,9 @@ class PydNet(nn.Module):
 
         # 源点云和法向量
         xyz_src, norm_src = data['points_src'][:, :, :3], data['points_src'][:, :, 3:6]
+
+        # _logger.info('src, ref shape: {}, {}'.format(xyz_src.shape, xyz_ref.shape))
+
         xyz_src_t, norm_src_t = xyz_src, norm_src
 
         transforms = []

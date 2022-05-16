@@ -247,12 +247,12 @@ def distance_between_pmds(pmd_src: dict, gt_transform: np.ndarray, pred_transfor
     angles_gt, angles_pred = pmd_gt['pmd'], pmd_pred['pmd']
     cos_gt, cos_pred = torch.cos(angles_gt), torch.cos(angles_pred)
     similarity = torch.mean(torch.abs(cos_gt - cos_pred))
-    assert 0 <= similarity <= 1, _logger.error('similarity not in [0, 1]')
+    # assert 0 <= similarity <= 1, _logger.error('similarity not in [0, 1]')
 
     pmd_loss.append((1 - similarity) * (omega_2 / (omega_1 + omega_2)))
 
     # /10 是为了减小其量级, 方便在一张png上画曲线
-    return np.sum(pmd_loss)/3/10
+    return np.sum(pmd_loss)/30
 
 
 def distance_between_clusters(cluster_1: torch.Tensor, cluster_2: torch.Tensor, p: int = 2):
@@ -482,8 +482,7 @@ def run(train_set: data_loader.datasets.ModelNetHdf,
                 # feat_ref_cluster   tensor    (batchsize, 717, 96)      # 96由参数_args.feat_dim确定
 
                 # pred_transform = (iter, batchsize, 3, 4)
-                pred_transforms, endpoints = model(train_data,
-                                                   _args.num_train_reg_iter)  # Use less iter during training
+                pred_transforms, endpoints = model(train_data, _args.num_train_reg_iter, _args.noise_type)  # Use less iter during training
 
                 if _args.feat_dumpdir is not None:
 

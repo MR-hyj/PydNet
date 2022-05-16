@@ -227,7 +227,7 @@ def inference(data_loader, model: torch.nn.Module):
             dict_all_to_device(val_data, _device)
             time_before = time.time()
             # (iter_num, batch_size, 3, 4)
-            pred_transforms, endpoints = model(val_data, _args.num_reg_iter)
+            pred_transforms, endpoints = model(val_data, _args.num_reg_iter, _args.noise_type)
             total_time+= time.time() - time_before
 
             # (batchsize, feat_dim),  (batchsize, feat_dim), (iter, batchsize, ...)
