@@ -113,8 +113,8 @@ class CheckPointManager(object):
             raise AssertionError('Checkpoint manager must be initialized with save path for save().')
 
         self._save_checkpoint(step, model, optimizer, score)
-        self._remove_old_checkpoints()
-        self._update_checkpoints_file()
+        # self._remove_old_checkpoints()
+        # self._update_checkpoints_file()
 
     def load(self, save_path, model: torch.nn.Module = None, optimizer: Optimizer = None):
         """Loads saved model from file
