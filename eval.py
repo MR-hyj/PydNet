@@ -131,6 +131,26 @@ def compute_metrics(data: Dict, pred_transforms, clip_val=0.1) -> Dict:
     return metrics
 
 
+def calculate_recall(metrics: dict):
+    """
+    the proportion of samples with r_mae<1 and t_mae<0.1
+    Args:
+        metrics: dict
+
+    Returns:
+        float
+
+    """
+    num_samples = len(metrics['r_mae'])
+    r_mae_le_than = np.where(np.array(metrics['r_mae']) < 1)[0]
+    t_mae_le_than = np.where(np.array(metrics['t_mae']) < 0.1)[0]
+    r_t_mae_le_than = np.intersect1d(r_mae_le_than, t_mae_le_than)
+    num_goods = len(r_t_mae_le_than)
+    recall = num_goods / num_samples
+
+    return recall
+
+
 def summarize_metrics(metrics: dict):
     """Summaries computed metrices by taking mean over all data instances"""
     summarized = {}
@@ -142,7 +162,7 @@ def summarize_metrics(metrics: dict):
             summarized[k + '_rmse'] = np.sqrt(np.mean(metrics[k] ** 2))
         else:
             summarized[k] = np.mean(metrics[k])
-
+    summarized['recall'] = calculate_recall(metrics)
     return summarized
 
 
@@ -171,7 +191,7 @@ def print_metrics(logger, summary_metrics: Dict, losses_by_iteration: List = Non
     logger.info('Clip Chamfer error: {:.10f}(mean-sq)'.format(
         summary_metrics['clip_chamfer_dist']
     ))
-    logger.info('Recall: {:.8f}'.format(summary_metrics['recall']))
+    logger.info('Recall: {:.6f}%'.format(summary_metrics['recall']*100))
 
 
 def inference(data_loader, model: torch.nn.Module):
@@ -380,17 +400,7 @@ def evaluate(pred_transforms, data_loader: torch.utils.data.dataloader.DataLoade
         metrics_for_iter[i_iter] = {k: np.concatenate(metrics_for_iter[i_iter][k], axis=0)
                                     for k in metrics_for_iter[i_iter]}
 
-        # calculate recall
-        # the proportion of samples with r_mae<1 and t_mae<0.1
-        num_samples = len(metrics_for_iter[i_iter]['r_mae'])
-        r_mae_le_than = np.where(np.array(metrics_for_iter[i_iter]['r_mae']) < 1)[0]
-        t_mae_le_than = np.where(np.array(metrics_for_iter[i_iter]['t_mae']) < 0.1)[0]
-        r_t_mae_le_than = np.intersect1d(r_mae_le_than, t_mae_le_than)
-        num_goods = len(r_t_mae_le_than)
-        recall = num_goods/num_samples
-
         summary_metrics = summarize_metrics(metrics_for_iter[i_iter])
-        summary_metrics['recall'] = recall
         print_metrics(_logger, summary_metrics, title='Evaluation result (iter {})'.format(i_iter))
 
     return metrics_for_iter, summary_metrics
