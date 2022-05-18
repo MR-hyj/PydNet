@@ -1,6 +1,7 @@
 .idea/
+__pycache__/
 datasets/
-eval_results/
+*results*/
 feat_dumped_pcl/
 feat_dumped_pydnet/
 feat_dumped_rpmnet/

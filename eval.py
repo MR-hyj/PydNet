@@ -28,7 +28,6 @@ Example Usages:
         python eval.py --noise_type crop --transform_file [path-to-transforms.npy]
 """
 
-
 from collections import defaultdict
 import json
 import os
@@ -70,6 +69,7 @@ np.set_printoptions(suppress=True)
 	"chamfer_dist": 	改进的chamfer distance
 }
 """
+
 
 def compute_metrics(data: Dict, pred_transforms, clip_val=0.1) -> Dict:
     """Compute metrics required in the paper
@@ -117,7 +117,6 @@ def compute_metrics(data: Dict, pred_transforms, clip_val=0.1) -> Dict:
         dist_ref = torch.min(torch.min(square_distance(points_ref, src_clean), dim=-1)[0], clip_val)
         clip_chamfer_dist = torch.mean(dist_src, dim=1) + torch.mean(dist_ref, dim=1)
 
-
         metrics = {
             'r_mse': r_mse,
             'r_mae': r_mae,
@@ -132,7 +131,7 @@ def compute_metrics(data: Dict, pred_transforms, clip_val=0.1) -> Dict:
     return metrics
 
 
-def summarize_metrics(metrics):
+def summarize_metrics(metrics: dict):
     """Summaries computed metrices by taking mean over all data instances"""
     summarized = {}
     for k in metrics:
@@ -140,7 +139,7 @@ def summarize_metrics(metrics):
             summarized[k[:-3] + 'rmse'] = np.sqrt(np.mean(metrics[k]))
         elif k.startswith('err'):
             summarized[k + '_mean'] = np.mean(metrics[k])
-            summarized[k + '_rmse'] = np.sqrt(np.mean(metrics[k]**2))
+            summarized[k + '_rmse'] = np.sqrt(np.mean(metrics[k] ** 2))
         else:
             summarized[k] = np.mean(metrics[k])
 
@@ -162,13 +161,17 @@ def print_metrics(logger, summary_metrics: Dict, losses_by_iteration: List = Non
         summary_metrics['r_rmse'], summary_metrics['r_mae'],
         summary_metrics['t_rmse'], summary_metrics['t_mae'],
     ))
-    logger.info('Rotation error {:.8f}(deg, mean) | {:.8f}(deg, rmse)'.format(
+    logger.info('Rotation error(ERM) {:.8f}(deg, mean) | {:.8f}(deg, rmse)'.format(
         summary_metrics['err_r_deg_mean'], summary_metrics['err_r_deg_rmse']))
-    logger.info('Translation error {:.8g}(mean) | {:.8g}(rmse)'.format(
+    logger.info('Translation error(ETM) {:.8g}(mean) | {:.8g}(rmse)'.format(
         summary_metrics['err_t_mean'], summary_metrics['err_t_rmse']))
     logger.info('Chamfer error: {:.10f}(mean-sq)'.format(
         summary_metrics['chamfer_dist']
     ))
+    logger.info('Clip Chamfer error: {:.10f}(mean-sq)'.format(
+        summary_metrics['clip_chamfer_dist']
+    ))
+    logger.info('Recall: {:.8f}'.format(summary_metrics['recall']))
 
 
 def inference(data_loader, model: torch.nn.Module):
@@ -194,7 +197,7 @@ def inference(data_loader, model: torch.nn.Module):
     cnt = 0
     with torch.no_grad():
 
-        if  _args.feat_dumpdir is not None:
+        if _args.feat_dumpdir is not None:
             dump_dir_split = os.path.join('./outer_methods_results/{}/'.format(_args.noise_type))
             dump_dir_together = _args.feat_dumpdir
             dir_pred_cloud = os.path.join(dump_dir_split, 'pred_cloud/pyd/')
@@ -220,15 +223,14 @@ def inference(data_loader, model: torch.nn.Module):
             rot_trace = val_data['transform_gt'][:, 0, 0] + val_data['transform_gt'][:, 1, 1] + \
                         val_data['transform_gt'][:, 2, 2]
 
-
             rotdeg = torch.acos(torch.clamp(0.5 * (rot_trace - 1), min=-1.0, max=1.0)) * 180.0 / np.pi
             total_rotation.append(np.abs(to_numpy(rotdeg)))
 
             dict_all_to_device(val_data, _device)
             time_before = time.time()
             # (iter_num, batch_size, 3, 4)
-            pred_transforms, endpoints = model(val_data, _args.num_reg_iter)
-            total_time+= time.time() - time_before
+            pred_transforms, endpoints = model(val_data, _args.num_reg_iter, _args.noise_type)
+            total_time += time.time() - time_before
 
             # (batchsize, feat_dim),  (batchsize, feat_dim), (iter, batchsize, ...)
             feat_src_batch, feat_ref_batch, perm_matrix_batch \
@@ -238,7 +240,8 @@ def inference(data_loader, model: torch.nn.Module):
             gt_transforms_batch = val_data['transform_gt']
             cloud_raw_batch = val_data['points_raw'][..., :3]
 
-            pred_transforms_batch = se3.concatenate(pred_transforms[_args.num_reg_iter-1], se3.inverse(gt_transforms_batch))
+            pred_transforms_batch = se3.concatenate(pred_transforms[_args.num_reg_iter - 1],
+                                                    se3.inverse(gt_transforms_batch))
 
             cloud_pred_batch = se3.transform(pred_transforms_batch, cloud_raw_batch)
 
@@ -261,7 +264,6 @@ def inference(data_loader, model: torch.nn.Module):
                     #     'dxyz': to_numpy(feat_src_outdim['dxyz'][0]),
                     #     'ppf' : to_numpy(feat_src_outdim['ppf'][0]),
                     # }
-
 
                     generate_rectangular_obj(os.path.join(dir_raw, 'raw_cloud_{}.obj'.format(cnt)),
                                              points=to_numpy(sample_cloud_raw))
@@ -363,27 +365,38 @@ def evaluate(pred_transforms, data_loader: torch.utils.data.dataloader.DataLoade
 
         batch_size = 0
 
-
         for i_iter in range(pred_transforms.shape[1]):
             batch_size = data['points_src'].shape[0]
 
-            cur_pred_transforms = pred_transforms[num_processed:num_processed+batch_size, i_iter, :, :] # each batch
+            cur_pred_transforms = pred_transforms[num_processed:num_processed + batch_size, i_iter, :, :]  # each batch
 
             metrics = compute_metrics(data, cur_pred_transforms)
             for k in metrics:
                 metrics_for_iter[i_iter][k].append(metrics[k])
         num_processed += batch_size
 
+
     for i_iter in range(len(metrics_for_iter)):
         metrics_for_iter[i_iter] = {k: np.concatenate(metrics_for_iter[i_iter][k], axis=0)
                                     for k in metrics_for_iter[i_iter]}
+
+        # calculate recall
+        # the proportion of samples with r_mae<1 and t_mae<0.1
+        num_samples = len(metrics_for_iter[i_iter]['r_mae'])
+        r_mae_le_than = np.where(np.array(metrics_for_iter[i_iter]['r_mae']) < 1)[0]
+        t_mae_le_than = np.where(np.array(metrics_for_iter[i_iter]['t_mae']) < 0.1)[0]
+        r_t_mae_le_than = np.intersect1d(r_mae_le_than, t_mae_le_than)
+        num_goods = len(r_t_mae_le_than)
+        recall = num_goods/num_samples
+
         summary_metrics = summarize_metrics(metrics_for_iter[i_iter])
+        summary_metrics['recall'] = recall
         print_metrics(_logger, summary_metrics, title='Evaluation result (iter {})'.format(i_iter))
 
     return metrics_for_iter, summary_metrics
 
 
-def save_eval_data(pred_transforms, endpoints, metrics, summary_metrics, save_path):
+def save_eval_data(pred_transforms, endpoints, metrics: dict, summary_metrics, save_path):
     """Saves out the computed transforms
     """
 
@@ -406,7 +419,7 @@ def save_eval_data(pred_transforms, endpoints, metrics, summary_metrics, save_pa
         metrics[i_iter].pop('r_mse')
         metrics[i_iter].pop('t_mse')
         metrics_df = pd.DataFrame.from_dict(metrics[i_iter])
-        metrics_df.to_excel(writer, sheet_name='Iter_{}'.format(i_iter+1))
+        metrics_df.to_excel(writer, sheet_name='Iter_{}'.format(i_iter + 1))
     writer.close()
 
     # Save summary metrics

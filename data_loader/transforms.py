@@ -1,3 +1,4 @@
+import logging
 import math
 from typing import Dict, List
 
@@ -6,7 +7,7 @@ from scipy.spatial.transform import Rotation
 from scipy.stats import special_ortho_group
 import torch
 import torch.utils.data
-
+from common.mytorch import to_numpy
 from common.math.random import uniform_2_sphere
 import common.math.se3 as se3
 import common.math.so3 as so3
@@ -131,11 +132,11 @@ class RandomCrop:
     """
     def __init__(self, p_keep: List = None):
         if p_keep is None:
-            p_keep = [0.7, 0.7]  # Crop both clouds to 70%
+            p_keep = [0.7, 0.7]  # Crop both clouds to 80%
         self.p_keep = np.array(p_keep, dtype=np.float32)
 
-    @staticmethod
-    def crop(points, p_keep):
+
+    def crop(self, points, p_keep):
         rand_xyz = uniform_2_sphere()
         centroid = np.mean(points[:, :3], axis=0)
         points_centered = points[:, :3] - centroid
@@ -146,7 +147,8 @@ class RandomCrop:
         else:
             mask = dist_from_plane > np.percentile(dist_from_plane, (1.0 - p_keep) * 100)
 
-        return points[mask, :]
+        return to_numpy(mask).astype(np.uint8)
+        # return to_numpy(mask).astype(np.uint8) if np.sum(mask) >= 0.8*1024 else self.crop(points, p_keep)
 
     def __call__(self, sample):
 
@@ -158,10 +160,35 @@ class RandomCrop:
             np.random.seed(sample['idx'])
 
         if len(self.p_keep) == 1:
-            sample['points_src'] = self.crop(sample['points_src'], self.p_keep[0])
+            sample['mask_src'] = self.crop(sample['points_src'], self.p_keep[0])
+            sample['points_src'] = sample['points_src'][sample['mask_src'], :]
         else:
-            sample['points_src'] = self.crop(sample['points_src'], self.p_keep[0])
-            sample['points_ref'] = self.crop(sample['points_ref'], self.p_keep[1])
+            # logging.debug(sample['points_src'] == sample['points_ref']) # ALL True
+            mask = np.array([])
+            partial_rate = 512
+            while len(mask) <= partial_rate:
+                sample['mask_src'] = self.crop(sample['points_src'], self.p_keep[0])
+                sample['mask_ref'] = self.crop(sample['points_ref'], self.p_keep[1])
+
+                mask = ((sample['mask_src']&sample['mask_ref'])).astype(np.bool)
+                # logging.info('mask src, {}, {}'.format(np.sum(sample['mask_src']), sample['mask_src'].shape))
+                # logging.info('mask ref, {}, {}'.format(np.sum(sample['mask_ref']), sample['mask_ref'].shape))
+                # logging.info('mask, {}, {}'.format(np.sum(mask), mask.shape))
+                # logging.info(sample['mask_src'])
+                # logging.info(sample['mask_ref'])
+                # logging.info(mask)
+                # logging.info(mask)
+            mask = np.where(mask==True)[0][:partial_rate]
+            sample['points_src'] = sample['points_src'][mask, :]
+            sample['points_ref'] = sample['points_ref'][mask, :]
+            # logging.info('points src, {}'.format(sample['points_src'].shape))
+            # logging.info('points ref, {}'.format(sample['points_ref'].shape))
+            # logging.debug(sample['points_src'] == sample['points_ref']) # ALL True
+
+            # sample['points_src'] = sample['points_src'][sample['mask_src'], :]
+            # sample['points_ref'] = sample['points_ref'][sample['mask_src'], :]
+
+
         return sample
 
 

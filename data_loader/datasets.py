@@ -10,7 +10,7 @@ import numpy as np
 import open3d as o3d
 from torch.utils.data import Dataset
 import torchvision
-
+from PIL import Image, ImageOps
 import data_loader.transforms as Transforms
 import common.math.se3 as se3
 
@@ -119,18 +119,20 @@ def get_transforms(noise_type: str,
     elif noise_type == "crop":
         # Both source and reference point clouds cropped, plus same noise in "jitter"
         train_transforms = [Transforms.SplitSourceRef(),
+                            # Transforms.Resampler(num_points),
                             Transforms.RandomCrop(partial_p_keep),
                             Transforms.RandomTransformSE3_euler(rot_mag=rot_mag, trans_mag=trans_mag),
-                            Transforms.Resampler(num_points),
-                            Transforms.RandomJitter(),
+                            # Transforms.RandomJitter(),
+                            # Transforms.Resampler(num_points),
                             Transforms.ShufflePoints()]
 
         test_transforms = [Transforms.SetDeterministic(),
                            Transforms.SplitSourceRef(),
+                           # Transforms.Resampler(num_points),
                            Transforms.RandomCrop(partial_p_keep),
                            Transforms.RandomTransformSE3_euler(rot_mag=rot_mag, trans_mag=trans_mag),
-                           Transforms.Resampler(num_points),
-                           Transforms.RandomJitter(),
+                           # Transforms.RandomJitter(),
+                           # Transforms.Resampler(num_points),
                            Transforms.ShufflePoints()]
     else:
         raise NotImplementedError
@@ -202,10 +204,19 @@ class ModelNetHdf(Dataset):
 
         all_data = []
         all_labels = []
+        # all_rgb = []
 
         for fname in fnames:
             f = h5py.File(fname, mode='r')
+
+            # # TODO rgb
+            # x_min, x_max = np.min(f['data'][:]), np.max(f['data'][:])
+            # rgb = (f['data'][:] - x_min) / (x_max - x_min) * 255
+            # rgb = Image.fromarray(np.uint8([rgb]), mode='RGB')
+            # rgb = np.asarray(ImageOps.equalize(rgb))[0].astype(np.uint8)
+
             data = np.concatenate([f['data'][:], f['normal'][:]], axis=-1)
+
             labels = f['label'][:].flatten().astype(np.int64)
 
             if categories is not None:  # Filter out unwanted categories
@@ -215,6 +226,9 @@ class ModelNetHdf(Dataset):
 
             all_data.append(data)
             all_labels.append(labels)
+
+            # all_rgb.append(rgb)
+        # all_rgb = np.concatenate(all_rgb, axis=0)
 
         all_data = np.concatenate(all_data, axis=0)
         all_labels = np.concatenate(all_labels, axis=0)

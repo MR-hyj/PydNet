@@ -21,8 +21,7 @@ import datetime
 import argparse
 import numpy as np
 import coloredlogs
-from PIL import Image
-from PIL import ImageOps
+from PIL import Image, ImageOps
 from common.mytorch import to_numpy
 from common.io import generate_rectangular_obj, points_normals_from_ply, points_from_obj
 from arguments import pydnet_eval_arguments

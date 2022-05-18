@@ -84,6 +84,7 @@ def pydnet_arguments():
     parser.add_argument('--shuffle_points', '-sp',
                         action='store_true',
                         help='whether to shuffle points when loading data')
+    parser.add_argument('--parameter_net_norm_type', type=str, choices=['InstanceNorm', 'GroupNorm'], default='InstanceNorm')
 
     return parser
 

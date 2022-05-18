@@ -17,7 +17,7 @@ from torch.nn import functional as F
 
 
 class ParameterPredictionNet(nn.Module):
-    def __init__(self, weights_dim):
+    def __init__(self, weights_dim, norm_type='InstanceNorm'):
         """PointNet based Parameter prediction network
 
         Args:
@@ -29,34 +29,54 @@ class ParameterPredictionNet(nn.Module):
 
         self._logger = logging.getLogger(self.__class__.__name__)
         self.weights_dim = weights_dim
+        self.norm_type = norm_type
 
         # Pointnet
-        self.prepool = nn.Sequential(
-            nn.Conv1d(4, 64, 1),
-            nn.InstanceNorm1d(num_features=64),
-            # nn.GroupNorm(8, 64),
-            nn.ReLU(),
 
-            nn.Conv1d(64, 64, 1),
-            nn.InstanceNorm1d(num_features=64),
-            # nn.GroupNorm(8, 64),
-            nn.ReLU(),
+        if 'InstanceNorm' == self.norm_type:
+            self.prepool = nn.Sequential(
+                nn.Conv1d(4, 64, 1),
+                nn.InstanceNorm1d(num_features=64),
+                nn.ReLU(),
 
-            nn.Conv1d(64, 64, 1),
-            nn.InstanceNorm1d(num_features=64),
-            # nn.GroupNorm(8, 64),
-            nn.ReLU(),
+                nn.Conv1d(64, 64, 1),
+                nn.InstanceNorm1d(num_features=64),
+                nn.ReLU(),
 
-            nn.Conv1d(64, 128, 1),
-            nn.InstanceNorm1d(num_features=128),
-            # nn.GroupNorm(8, 128),
-            nn.ReLU(),
+                nn.Conv1d(64, 64, 1),
+                nn.InstanceNorm1d(num_features=64),
+                nn.ReLU(),
 
-            nn.Conv1d(128, 1024, 1),
-            nn.InstanceNorm1d(num_features=1024),
-            # nn.GroupNorm(16, 1024),
-            nn.ReLU(),
-        )
+                nn.Conv1d(64, 128, 1),
+                nn.InstanceNorm1d(num_features=128),
+                nn.ReLU(),
+
+                nn.Conv1d(128, 1024, 1),
+                nn.InstanceNorm1d(num_features=1024),
+                nn.ReLU(),
+            )
+        else:
+            self.prepool = nn.Sequential(
+                nn.Conv1d(4, 64, 1),
+                nn.GroupNorm(8, 64),
+                nn.ReLU(),
+
+                nn.Conv1d(64, 64, 1),
+                nn.GroupNorm(8, 64),
+                nn.ReLU(),
+
+                nn.Conv1d(64, 64, 1),
+                nn.GroupNorm(8, 64),
+                nn.ReLU(),
+
+                nn.Conv1d(64, 128, 1),
+                nn.GroupNorm(8, 128),
+                nn.ReLU(),
+
+                nn.Conv1d(128, 1024, 1),
+                nn.GroupNorm(16, 1024),
+                nn.ReLU(),
+            )
         self.pooling = nn.AdaptiveMaxPool1d(1)
         self.postpool = nn.Sequential(
             nn.Linear(1024, 512),
