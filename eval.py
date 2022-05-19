@@ -132,8 +132,8 @@ def compute_metrics(data: Dict, pred_transforms, clip_val=0.1) -> Dict:
 
 
 def calculate_recall(metrics: dict):
-    """
-    the proportion of samples with r_mae<1 and t_mae<0.1
+    """the proportion of samples with r_mae<1 and t_mae<0.1
+
     Args:
         metrics: dict
 
