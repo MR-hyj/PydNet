@@ -372,7 +372,7 @@ def validate(data_loader, model: torch.nn.Module, summary_writer: SummaryWriter,
     dict_all_to_device(data_to_rerun, _device)
     pred_transforms, endpoints = model(data_to_rerun, _args.num_reg_iter)
 
-    summary_metrics = summarize_metrics(all_val_metrics_np)
+    summary_metrics, _ = summarize_metrics(all_val_metrics_np, eval_mode=False)
     losses_by_iteration = torch.stack([mean_val_losses['{}_{}'.format('mse', k)]
                                        for k in range(_args.num_reg_iter)]).cpu().numpy()
     print_metrics(_logger, summary_metrics, losses_by_iteration, 'Validation results')
@@ -659,7 +659,7 @@ def plot_loss_curve(loss_tr_type: str = None,
     if etr is not None:
         plot_single_curve(data=etr, save_name='err_translation_rmse', title='err translation rmse',
                           xlabel='validate epoch', ylabel='err translation rmse', label='err translation rmse')
-        
+
     if recall is not None:
         plot_single_curve(data=recall, save_name='recall', title='recall',
                           xlabel='validate epoch', ylabel='recall', label='recall')

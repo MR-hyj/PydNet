@@ -132,8 +132,8 @@ def compute_metrics(data: Dict, pred_transforms, clip_val=0.1) -> Dict:
 
 
 def calculate_recall(metrics: dict):
-    """the proportion of samples with r_mae<1 and t_mae<0.1
-
+    """
+    the proportion of samples with r_mae<1 and t_mae<0.1
     Args:
         metrics: dict
 
@@ -151,8 +151,46 @@ def calculate_recall(metrics: dict):
     return recall
 
 
-def summarize_metrics(metrics: dict):
-    """Summaries computed metrices by taking mean over all data instances"""
+def calculate_mean_metric_per_category(metrics: dict, key: str):
+    """Calculate the specified metric of each category in test samples
+
+    Args:
+        metrics: dict ['r_mse', 'r_mae', 't_mse', 't_mae', 'err_r_deg', 'err_t', 'chamfer_dist', 'clip_chamfer_dist', 'label']
+        key:     str
+
+    Returns:
+        np.ndarray
+    """
+
+    key_per_category = {}
+
+    for idx in range(len(metrics['r_mae'])):
+        if key.endswith('rmse'):
+            sample_key_value = np.sqrt(metrics[key[0]+'_mse'][idx])
+        else:
+            sample_key_value = metrics[key][idx]
+
+        sample_label = metrics['label'][idx]
+        if sample_label in key_per_category.keys():
+            key_per_category[sample_label] = np.concatenate([key_per_category[sample_label], [sample_key_value]])
+        else:
+            key_per_category[sample_label] = np.array([sample_key_value])
+    # _logger.info('key_per_category.keys: {}'.format(key_per_category.keys()))
+
+    for each_category in key_per_category.keys():
+        key_per_category[each_category] = np.mean(key_per_category[each_category])
+
+    return key_per_category
+
+def summarize_metrics(metrics: dict, eval_mode=False):
+    """Summaries computed metrices by taking mean over all data instances
+
+    Args:
+        metrics: metrics[key]: (num_samples, ) ['r_mse', 'r_mae', 't_mse', 't_mae', 'err_r_deg', 'err_t', 'chamfer_dist', 'clip_chamfer_dist', 'label']
+
+    Returns:
+
+    """
     summarized = {}
     for k in metrics:
         if k.endswith('mse'):
@@ -163,7 +201,11 @@ def summarize_metrics(metrics: dict):
         else:
             summarized[k] = np.mean(metrics[k])
     summarized['recall'] = calculate_recall(metrics)
-    return summarized
+    mean_metric_each_category = {}
+    if eval_mode:
+        for key in ['r_rmse', 't_rmse', 'r_mae', 't_mae']:
+            mean_metric_each_category[key] = calculate_mean_metric_per_category(metrics, key)
+    return summarized, mean_metric_each_category
 
 
 def print_metrics(logger, summary_metrics: Dict, losses_by_iteration: List = None,
@@ -382,6 +424,8 @@ def evaluate(pred_transforms, data_loader: torch.utils.data.dataloader.DataLoade
     # each batch
     for data in tqdm(data_loader, leave=False):
         dict_all_to_device(data, _device)
+        # data.keys: (batch_size, n_points, X)
+
 
         batch_size = 0
 
@@ -391,22 +435,25 @@ def evaluate(pred_transforms, data_loader: torch.utils.data.dataloader.DataLoade
             cur_pred_transforms = pred_transforms[num_processed:num_processed + batch_size, i_iter, :, :]  # each batch
 
             metrics = compute_metrics(data, cur_pred_transforms)
+            metrics['label'] = to_numpy(data['label'])
             for k in metrics:
                 metrics_for_iter[i_iter][k].append(metrics[k])
         num_processed += batch_size
 
 
     for i_iter in range(len(metrics_for_iter)):
+        # metrics_for_iter[i_iter][key]: (num_samples,)
         metrics_for_iter[i_iter] = {k: np.concatenate(metrics_for_iter[i_iter][k], axis=0)
                                     for k in metrics_for_iter[i_iter]}
 
-        summary_metrics = summarize_metrics(metrics_for_iter[i_iter])
+        # summary_metrics[key]: (num_samples, )
+        summary_metrics, mean_metrics_each_category = summarize_metrics(metrics_for_iter[i_iter], eval_mode=True)
         print_metrics(_logger, summary_metrics, title='Evaluation result (iter {})'.format(i_iter))
 
-    return metrics_for_iter, summary_metrics
+    return metrics_for_iter, summary_metrics, mean_metrics_each_category
 
 
-def save_eval_data(pred_transforms, endpoints, metrics: dict, summary_metrics, save_path):
+def save_eval_data(pred_transforms, endpoints, metrics: List, summary_metrics, save_path, metrics_each_category=None):
     """Saves out the computed transforms
     """
 
@@ -432,10 +479,24 @@ def save_eval_data(pred_transforms, endpoints, metrics: dict, summary_metrics, s
         metrics_df.to_excel(writer, sheet_name='Iter_{}'.format(i_iter + 1))
     writer.close()
 
-    # Save summary metrics
+    # Save overall summary metrics
     summary_metrics_float = {k: float(summary_metrics[k]) for k in summary_metrics}
+    summary_metrics_float.pop('label')
     with open(os.path.join(save_path, 'summary_metrics.json'), 'w') as json_out:
         json.dump(summary_metrics_float, json_out)
+
+    # Save each category summary metrics
+    # metrics_each_category: { key: {label: float} }
+    if metrics_each_category is not None:
+        metrics_each_category_float = {}
+        for key, value in metrics_each_category.items():
+            metrics_each_category_float[key] = {str(k): float(value[k]) for k in value}
+        with open(os.path.join(save_path, 'mean_metrics_each_category.json'), 'w') as json_out:
+            json.dump(metrics_each_category_float, json_out)
+        # for key, value in metrics_each_category.items():
+        #     with open(os.path.join(save_path, 'mean_{}_metrics_each_category.json'.format(key)), 'w') as json_out:
+        #         value_float = {str(k): float(value[k]) for k in value}
+        #         json.dump(value_float, json_out)
 
     _logger.info('Saved evaluation results to {}'.format(save_path))
 
@@ -468,9 +529,10 @@ def main():
         pred_transforms, endpoints = inference(test_loader, model)  # Feedforward transforms
 
     # Compute evaluation matrices
-    eval_metrics, summary_metrics = evaluate(pred_transforms, data_loader=test_loader)
+    eval_metrics, summary_metrics, mean_metrics_each_category = evaluate(pred_transforms, data_loader=test_loader)
 
-    save_eval_data(pred_transforms, endpoints, eval_metrics, summary_metrics, _args.eval_save_path)
+    save_eval_data(pred_transforms, endpoints, eval_metrics,
+                   summary_metrics, _args.eval_save_path, metrics_each_category=mean_metrics_each_category)
     _logger.info('Finished')
 
 

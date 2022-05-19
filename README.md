@@ -1,11 +1,20 @@
+# Version-0.2.3
+
+## Updates
+
+- 新增对每个类别的metrics统计并保存json
+
+# Version-0.2.2
+
+## Updates
+
+- 新增recall的plot绘图和保存
+
 # Version-0.2.1
 
 ## Updates
 
 - 在`metric`中增加了`recall`的计算, 输出和保存.
-
-## Modification
-
 - `Parameter_net`中, `pre_pool`可选`InstanceNorm`还是`GroupNorm`.
 
 # Version-0.2.0
