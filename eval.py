@@ -386,7 +386,10 @@ def inference(data_loader, model: torch.nn.Module):
 
                 for i_data in range(perm_matrices.shape[0]):
                     sparse_perm_matrices = []
-                    sparse_perm_matrices.append(perm_matrices[i_data, perm_matrices.shape[1]-1, :, :])
+                    if _args.save_sparse_perm_metrix:
+                        sparse_perm_matrices.append(sparse.coo_matrix(perm_matrices[i_data, perm_matrices.shape[1]-1, :, :]))
+                    else:
+                        sparse_perm_matrices.append(perm_matrices[i_data, perm_matrices.shape[1]-1, :, :])
                     # for i_iter in range(perm_matrices.shape[1]):
                         # sparse_perm_matrices.append(sparse.coo_matrix(perm_matrices[i_data, i_iter, :, :]))
                     endpoints_out['perm_matrices'].append(sparse_perm_matrices)
