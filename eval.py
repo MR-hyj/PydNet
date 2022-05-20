@@ -380,14 +380,15 @@ def inference(data_loader, model: torch.nn.Module):
             # However, this still takes quite a bit of time to save. Comment out if not needed.
             if 'perm_matrices' in endpoints:
                 perm_matrices = to_numpy(torch.stack(endpoints['perm_matrices'], dim=1))
-                thresh = np.percentile(perm_matrices, 99.9, axis=[2, 3])  # Only retain top 0.1% of entries
-                below_thresh_mask = perm_matrices < thresh[:, :, None, None]
-                perm_matrices[below_thresh_mask] = 0.0
+                # thresh = np.percentile(perm_matrices, 99.9, axis=[2, 3])  # Only retain top 0.1% of entries
+                # below_thresh_mask = perm_matrices < thresh[:, :, None, None]
+                # perm_matrices[below_thresh_mask] = 0.0
 
                 for i_data in range(perm_matrices.shape[0]):
                     sparse_perm_matrices = []
-                    for i_iter in range(perm_matrices.shape[1]):
-                        sparse_perm_matrices.append(sparse.coo_matrix(perm_matrices[i_data, i_iter, :, :]))
+                    sparse_perm_matrices.append(perm_matrices[i_data, perm_matrices.shape[1]-1, :, :])
+                    # for i_iter in range(perm_matrices.shape[1]):
+                        # sparse_perm_matrices.append(sparse.coo_matrix(perm_matrices[i_data, i_iter, :, :]))
                     endpoints_out['perm_matrices'].append(sparse_perm_matrices)
 
     _logger.info('Total inference time: {}s'.format(total_time))

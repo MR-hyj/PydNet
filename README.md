@@ -1,3 +1,14 @@
+# Version-0.2.4.1
+
+## Update
+
+- 只保留最后一次迭代的`perm_metrix`
+
+# Version-0.2.4
+
+## Updates
+- 修改了`eval.py`, 使其保存的`perm_metrix`不再是稀疏矩阵, 而是完整的所有点的对应关系
+- 新增`test/load_perm_metrix.py`, 能够保存并绘制指定sample和iter的`perm metrix`
 # Version-0.2.3
 
 ## Updates
