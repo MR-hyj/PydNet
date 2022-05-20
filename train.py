@@ -372,7 +372,7 @@ def validate(data_loader, model: torch.nn.Module, summary_writer: SummaryWriter,
     dict_all_to_device(data_to_rerun, _device)
     pred_transforms, endpoints = model(data_to_rerun, _args.num_reg_iter)
 
-    summary_metrics = summarize_metrics(all_val_metrics_np)
+    summary_metrics, _ = summarize_metrics(all_val_metrics_np, eval_mode=False)
     losses_by_iteration = torch.stack([mean_val_losses['{}_{}'.format('mse', k)]
                                        for k in range(_args.num_reg_iter)]).cpu().numpy()
     print_metrics(_logger, summary_metrics, losses_by_iteration, 'Validation results')
@@ -398,7 +398,7 @@ def run(train_set: data_loader.datasets.ModelNetHdf,
     loss_train_all, loss_val_all, loss_tr_all, loss_fe_all = [], [], [], []
 
     err_r_deg_mean, err_r_deg_rmse, err_t_mean, err_t_rmse = [], [], [], []
-    chamfer_distance = []
+    chamfer_distance, recalls = [], []
 
     # dataloaders
     train_loader = torch.utils.data.DataLoader(train_set,
@@ -553,7 +553,7 @@ def run(train_set: data_loader.datasets.ModelNetHdf,
                     err_t_rmse.append(metrics_batch['err_t_rmse'])
                     chamfer_distance.append(metrics_batch['chamfer_dist'])
                     loss_val_all.append(val_loss)
-
+                    recalls.append(metrics_batch['recall'])
                     saver.save(model, optimizer, step=global_step, score=val_score)
                     model.train()
 
@@ -568,9 +568,12 @@ def run(train_set: data_loader.datasets.ModelNetHdf,
     # if True:
         _logger.info('Ending training. Number of steps = {}.'.format(global_step))
 
-        plot_loss_curve(loss_train=loss_train_all, loss_val=loss_val_all, loss_fe=loss_fe_all,
-                        loss_cd=chamfer_distance, loss_tr=loss_tr_all, loss_tr_type=_args.loss_type,
-                        erm=err_r_deg_mean, err=err_r_deg_rmse, etm=err_t_mean, etr=err_t_rmse)
+        plot_loss_curve(loss_train=loss_train_all, loss_val=loss_val_all,
+                        loss_fe=loss_fe_all, loss_cd=chamfer_distance,
+                        loss_tr=loss_tr_all, loss_tr_type=_args.loss_type,
+                        erm=err_r_deg_mean, err=err_r_deg_rmse,
+                        etm=err_t_mean, etr=err_t_rmse,
+                        recall=recalls)
 
 
 def plot_single_curve(data,
@@ -604,6 +607,7 @@ def plot_loss_curve(loss_tr_type: str = None,
     err = kwargs.get('err', None)
     etm = kwargs.get('etm', None)
     etr = kwargs.get('etr', None)
+    recall = kwargs.get('recall', None)
 
     assert loss_train is not None, _logger.error('No train loss in {}'.format(kwargs.keys()))
 
@@ -655,6 +659,10 @@ def plot_loss_curve(loss_tr_type: str = None,
     if etr is not None:
         plot_single_curve(data=etr, save_name='err_translation_rmse', title='err translation rmse',
                           xlabel='validate epoch', ylabel='err translation rmse', label='err translation rmse')
+
+    if recall is not None:
+        plot_single_curve(data=recall, save_name='recall', title='recall',
+                          xlabel='validate epoch', ylabel='recall', label='recall')
 
 
 

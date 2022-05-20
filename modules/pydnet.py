@@ -121,15 +121,28 @@ def sinkhorn(log_alpha, n_iters: int = 5, slack: bool = True, eps: float = -1) -
     return log_alpha
 
 
+def compute_rigid_transform_based_on_RANSAC(a: torch.Tensor, b: torch.Tensor, weights: torch.Tensor):
+    """Compute rigid transforms between two point sets using RANSAC
+        Args:
+            a (torch.Tensor): (B, N, 3) points
+            b (torch.Tensor): (B, N, 3) points
+            weights (torch.Tensor): (B, N)  soft weights with sum(weights, dim=1) <= 1 for each row
+
+        Returns:
+            Transform T (B, 3, 4) to get from a to b, i.e. T*a = b
+    """
+    pass
+
+
 def compute_rigid_transform(a: torch.Tensor, b: torch.Tensor, weights: torch.Tensor):
     """Compute rigid transforms between two point sets using Kabsch algorithm
-    Args:
-        a (torch.Tensor): (B, N, 3) points
-        b (torch.Tensor): (B, N, 3) points
-        weights (torch.Tensor): (B, N)
+        Args:
+            a (torch.Tensor): (B, N, 3) points
+            b (torch.Tensor): (B, N, 3) points
+            weights (torch.Tensor): (B, N)
 
-    Returns:
-        Transform T (B, 3, 4) to get from a to b, i.e. T*a = b
+        Returns:
+            Transform T (B, 3, 4) to get from a to b, i.e. T*a = b
     """
 
     # 每行归一化, weights_normalized.shape = (B, N, 1)
@@ -172,7 +185,7 @@ class PydNet(nn.Module):
 
         self.add_slack = not args.no_slack
         self.num_sk_iter = args.num_sk_iter
-        self.weights_net = ParameterPredictionNet(weights_dim=[0])
+        self.weights_net = ParameterPredictionNet(weights_dim=[0], norm_type=args.parameter_net_norm_type)
         self.feat_extractor = FeatExtractionEarlyFusion(
             features=args.features, feature_dim=args.feat_dim,
             radius=args.radius, num_neighbors=args.num_neighbors)
@@ -291,7 +304,7 @@ class PydNetEarlyFusion(PydNet):
     def __init__(self, args: argparse.Namespace):
         super().__init__(args)
 
-        self.weights_net = ParameterPredictionNet(weights_dim=[0])
+        self.weights_net = ParameterPredictionNet(weights_dim=[0], norm_type=args.parameter_net_norm_type)
         self.feat_extractor = FeatExtractionEarlyFusion(
             features=args.features, feature_dim=args.feat_dim,
             radius=args.radius, num_neighbors=args.num_neighbors)

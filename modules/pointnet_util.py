@@ -293,18 +293,18 @@ def sample_and_group_multi(npoint: int, radius: float, nsample: int, xyz: torch.
     angle_SA = angle(n_SAB, n_SCA)  # (B, npoint)
     angle_SB = angle(n_SAB, n_SBC)  # (B, npoint)
     angle_SC = angle(n_SCA, n_SBC)  # (B, npoint)
-    _logger.debug('angle SA shape: {}'.format(angle_SA.shape))
+    # _logger.debug('angle SA shape: {}'.format(angle_SA.shape))
 
     angle_SA = angle_SA.reshape(B, N, 1)
     angle_SB = angle_SB.reshape(B, N, 1)
     angle_SC = angle_SC.reshape(B, N, 1)
-    _logger.debug('angle SA reshape shape: {}'.format(angle_SA.shape))
+    # _logger.debug('angle SA reshape shape: {}'.format(angle_SA.shape))
 
     angle_SA = angle_SA.repeat(1, 1, nsample)     # (B, npoint, 3)
     angle_SB = angle_SB.repeat(1, 1, nsample)     # (B, npoint, 3)
     angle_SC = angle_SC.repeat(1, 1, nsample)     # (B, npoint, 3)
     nr_ni = angle(nr, ni)                   # (B, npoint, nsample)
-    _logger.debug('angle SA repeat shape: {}'.format(angle_SA.shape))
+    # _logger.debug('angle SA repeat shape: {}'.format(angle_SA.shape))
     #
     d_norm = torch.norm(d, dim=-1)
     # xyz:  (B, npoint, 3)

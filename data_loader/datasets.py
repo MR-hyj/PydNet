@@ -27,7 +27,7 @@ def get_train_datasets(args: argparse.Namespace):
         val_categories.sort()
 
     train_transforms, val_transforms = get_transforms(args.noise_type, args.rot_mag, args.trans_mag,
-                                                      args.num_points, args.partial)
+                                                      args.num_points, args.partial, shuffle_points=not args.do_not_shuffle_points)
     _logger.info('Train transforms: {}'.format(', '.join([type(t).__name__ for t in train_transforms])))
     _logger.info('Val transforms: {}'.format(', '.join([type(t).__name__ for t in val_transforms])))
     train_transforms = torchvision.transforms.Compose(train_transforms)
@@ -51,7 +51,7 @@ def get_test_datasets(args: argparse.Namespace):
         test_categories.sort()
 
     _, test_transforms = get_transforms(args.noise_type, args.rot_mag, args.trans_mag,
-                                        args.num_points, args.partial)
+                                        args.num_points, args.partial, shuffle_points=not args.do_not_shuffle_points)
     _logger.info('Test transforms: {}'.format(', '.join([type(t).__name__ for t in test_transforms])))
     test_transforms = torchvision.transforms.Compose(test_transforms)
 
@@ -66,7 +66,7 @@ def get_test_datasets(args: argparse.Namespace):
 
 def get_transforms(noise_type: str,
                    rot_mag: float = 45.0, trans_mag: float = 0.5,
-                   num_points: int = 1024, partial_p_keep: List = None):
+                   num_points: int = 1024, partial_p_keep: List = None, shuffle_points: bool=True):
     """Get the list of transformation to be used for training or evaluating RegNet
 
     Args:
@@ -90,50 +90,89 @@ def get_transforms(noise_type: str,
 
     if noise_type == "clean":
         # 1-1 correspondence for each point (resample first before splitting), no noise
-        train_transforms = [Transforms.Resampler(num_points),
-                            Transforms.SplitSourceRef(),
-                            Transforms.RandomTransformSE3_euler(rot_mag=rot_mag, trans_mag=trans_mag),
-                            Transforms.ShufflePoints()]
+        if shuffle_points:
+            train_transforms = [Transforms.Resampler(num_points),
+                                Transforms.SplitSourceRef(),
+                                Transforms.RandomTransformSE3_euler(rot_mag=rot_mag, trans_mag=trans_mag),
+                                Transforms.ShufflePoints()]
 
-        test_transforms = [Transforms.SetDeterministic(),
-                           Transforms.FixedResampler(num_points),
-                           Transforms.SplitSourceRef(),
-                           Transforms.RandomTransformSE3_euler(rot_mag=rot_mag, trans_mag=trans_mag),
-                           Transforms.ShufflePoints()]
+            test_transforms = [Transforms.SetDeterministic(),
+                               Transforms.FixedResampler(num_points),
+                               Transforms.SplitSourceRef(),
+                               Transforms.RandomTransformSE3_euler(rot_mag=rot_mag, trans_mag=trans_mag),
+                               Transforms.ShufflePoints()]
+        else:
+            train_transforms = [Transforms.Resampler(num_points),
+                                Transforms.SplitSourceRef(),
+                                Transforms.RandomTransformSE3_euler(rot_mag=rot_mag, trans_mag=trans_mag)]
+
+            test_transforms = [Transforms.SetDeterministic(),
+                               Transforms.FixedResampler(num_points),
+                               Transforms.SplitSourceRef(),
+                               Transforms.RandomTransformSE3_euler(rot_mag=rot_mag, trans_mag=trans_mag)]
 
     elif noise_type == "jitter":
         # Points randomly sampled (might not have perfect correspondence), gaussian noise to position
-        train_transforms = [Transforms.SplitSourceRef(),
-                            Transforms.RandomTransformSE3_euler(rot_mag=rot_mag, trans_mag=trans_mag),
-                            Transforms.Resampler(num_points),
-                            Transforms.RandomJitter(),
-                            Transforms.ShufflePoints()]
+        if shuffle_points:
+            train_transforms = [Transforms.SplitSourceRef(),
+                                Transforms.RandomTransformSE3_euler(rot_mag=rot_mag, trans_mag=trans_mag),
+                                Transforms.Resampler(num_points),
+                                Transforms.RandomJitter(),
+                                Transforms.ShufflePoints()]
+            test_transforms = [Transforms.SetDeterministic(),
+                               Transforms.SplitSourceRef(),
+                               Transforms.RandomTransformSE3_euler(rot_mag=rot_mag, trans_mag=trans_mag),
+                               Transforms.Resampler(num_points),
+                               Transforms.RandomJitter(),
+                               Transforms.ShufflePoints()]
+        else:
+            train_transforms = [Transforms.SplitSourceRef(),
+                                Transforms.RandomTransformSE3_euler(rot_mag=rot_mag, trans_mag=trans_mag),
+                                Transforms.Resampler(num_points),
+                                Transforms.RandomJitter()]
 
-        test_transforms = [Transforms.SetDeterministic(),
-                           Transforms.SplitSourceRef(),
-                           Transforms.RandomTransformSE3_euler(rot_mag=rot_mag, trans_mag=trans_mag),
-                           Transforms.Resampler(num_points),
-                           Transforms.RandomJitter(),
-                           Transforms.ShufflePoints()]
+            test_transforms = [Transforms.SetDeterministic(),
+                               Transforms.SplitSourceRef(),
+                               Transforms.RandomTransformSE3_euler(rot_mag=rot_mag, trans_mag=trans_mag),
+                               Transforms.Resampler(num_points),
+                               Transforms.RandomJitter()]
 
     elif noise_type == "crop":
         # Both source and reference point clouds cropped, plus same noise in "jitter"
-        train_transforms = [Transforms.SplitSourceRef(),
-                            # Transforms.Resampler(num_points),
-                            Transforms.RandomCrop(partial_p_keep),
-                            Transforms.RandomTransformSE3_euler(rot_mag=rot_mag, trans_mag=trans_mag),
-                            # Transforms.RandomJitter(),
-                            # Transforms.Resampler(num_points),
-                            Transforms.ShufflePoints()]
+        if shuffle_points:
+            train_transforms = [Transforms.SplitSourceRef(),
+                                # Transforms.Resampler(num_points),
+                                Transforms.RandomCrop(partial_p_keep),
+                                Transforms.RandomTransformSE3_euler(rot_mag=rot_mag, trans_mag=trans_mag),
+                                # Transforms.RandomJitter(),
+                                # Transforms.Resampler(num_points),
+                                Transforms.ShufflePoints()]
 
-        test_transforms = [Transforms.SetDeterministic(),
-                           Transforms.SplitSourceRef(),
-                           # Transforms.Resampler(num_points),
-                           Transforms.RandomCrop(partial_p_keep),
-                           Transforms.RandomTransformSE3_euler(rot_mag=rot_mag, trans_mag=trans_mag),
-                           # Transforms.RandomJitter(),
-                           # Transforms.Resampler(num_points),
-                           Transforms.ShufflePoints()]
+            test_transforms = [Transforms.SetDeterministic(),
+                               Transforms.SplitSourceRef(),
+                               # Transforms.Resampler(num_points),
+                               Transforms.RandomCrop(partial_p_keep),
+                               Transforms.RandomTransformSE3_euler(rot_mag=rot_mag, trans_mag=trans_mag),
+                               # Transforms.RandomJitter(),
+                               # Transforms.Resampler(num_points),
+                               Transforms.ShufflePoints()]
+        else:
+            train_transforms = [Transforms.SplitSourceRef(),
+                                # Transforms.Resampler(num_points),
+                                Transforms.RandomCrop(partial_p_keep),
+                                Transforms.RandomTransformSE3_euler(rot_mag=rot_mag, trans_mag=trans_mag),
+                                # Transforms.RandomJitter(),
+                                # Transforms.Resampler(num_points)
+                                ]
+
+            test_transforms = [Transforms.SetDeterministic(),
+                               Transforms.SplitSourceRef(),
+                               # Transforms.Resampler(num_points),
+                               Transforms.RandomCrop(partial_p_keep),
+                               Transforms.RandomTransformSE3_euler(rot_mag=rot_mag, trans_mag=trans_mag),
+                               # Transforms.RandomJitter(),
+                               # Transforms.Resampler(num_points)
+                               ]
     else:
         raise NotImplementedError
 

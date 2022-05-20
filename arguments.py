@@ -81,9 +81,10 @@ def pydnet_arguments():
     parser.add_argument('--feat_dumpdir', '-fd', type=str, metavar='PATH',
                         default=None,
                         help='directory in which the extracted src features will be dumped. Not save when set False')
-    parser.add_argument('--shuffle_points', '-sp',
+    parser.add_argument('--do_not_shuffle_points', '-sp',
                         action='store_true',
                         help='whether to shuffle points when loading data')
+    parser.add_argument('--parameter_net_norm_type', type=str, choices=['InstanceNorm', 'GroupNorm'], default='InstanceNorm')
 
     return parser
 
