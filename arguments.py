@@ -128,6 +128,7 @@ def pydnet_eval_arguments():
     # Save out evaluation data_loader for further analysis
     parser.add_argument('--eval_save_path', type=str, default='./eval_results',
                         help='Output data_loader to save evaluation results')
+    parser.add_argument('--save_sparse_perm_metrix', action='store_true', default=False)
     parser.description = 'PydNet evaluation'
     return parser
 
