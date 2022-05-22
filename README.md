@@ -1,3 +1,9 @@
+# Version-0.2.5
+
+## Update
+
+- 用`similarity`替换`differ`, 并保存`ref`, `src`, `ground truth`的`similarity`
+
 # Version-0.2.4.1
 
 ## Update
