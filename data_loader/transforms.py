@@ -165,8 +165,8 @@ class RandomCrop:
         else:
             # logging.debug(sample['points_src'] == sample['points_ref']) # ALL True
             mask = np.array([])
-            partial_rate = 512
-            while len(mask) <= partial_rate:
+            partial_num = 512
+            while len(mask) <= partial_num:
                 sample['mask_src'] = self.crop(sample['points_src'], self.p_keep[0])
                 sample['mask_ref'] = self.crop(sample['points_ref'], self.p_keep[1])
 
@@ -178,7 +178,8 @@ class RandomCrop:
                 # logging.info(sample['mask_ref'])
                 # logging.info(mask)
                 # logging.info(mask)
-            mask = np.where(mask==True)[0][:partial_rate]
+            mask = np.where(mask==True)[0][:partial_num]
+            sample['mask'] = mask
             sample['points_src'] = sample['points_src'][mask, :]
             sample['points_ref'] = sample['points_ref'][mask, :]
             # logging.info('points src, {}'.format(sample['points_src'].shape))

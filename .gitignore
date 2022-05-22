@@ -2,9 +2,7 @@
 __pycache__/
 datasets/
 *results*/
-feat_dumped_pcl/
-feat_dumped_pydnet/
-feat_dumped_rpmnet/
+feat_dumped*/
 logs_pydnet/
 logs_rpmnet/
 model_size_test_results/

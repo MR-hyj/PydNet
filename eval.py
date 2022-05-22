@@ -35,6 +35,7 @@ import pickle
 import time
 from typing import Dict, List
 
+import matplotlib.pyplot as plt
 import numpy as np
 import open3d  # Need to import before torch
 import pandas as pd
@@ -53,6 +54,7 @@ import modules.pydnet
 from common.io import generate_rectangular_obj
 from vispy import io
 from copy import deepcopy
+from matplotlib import pyplot as plt
 
 np.set_printoptions(suppress=True)
 
@@ -69,6 +71,47 @@ np.set_printoptions(suppress=True)
 	"chamfer_dist": 	改进的chamfer distance
 }
 """
+
+
+
+def distance_point_to_points(point: np.ndarray,
+                             points: np.ndarray) -> np.ndarray:
+    """
+    calculate the distance of a point and a set of points
+    @param point:     a point, marked as A, with shape (3, )
+    @param points:    a set of points, marked as B, with shape (n, 3, )
+    @return  the distance between A and each point in B with shape (n, )
+    """
+
+    # ignore the normals if any
+    assert 1 == len(point.shape), _logger.error(
+        f'Wrong shape of input point, expected 1 dimensional, but {len(point.shape)} detected.')
+    assert 2 == len(points.shape), _logger.error(
+        f'Wrong shape of input points, expected 2 dimensional, but {len(points.shape)} detected.')
+    point, points = point.astype(np.float)[:3], points.astype(np.float)[:, :3]
+    return np.linalg.norm(points - point, axis=-1)
+
+
+def distance_cloud_to_cloud(cloud_1: np.ndarray,
+                            cloud_2: np.ndarray,
+                            normalize: bool = True) -> np.ndarray:
+    """
+    calculate the distance of each point in points_1 and each point in points_2
+    @param cloud_1: a set of points, marked as A, with shape (na, 3, )
+    @param cloud_2: a set of points, marked as B, with shape (nb, 3, )
+    @return: the distance of each point in A and each point in B, with shape (na, nb)
+    """
+    distance_a_to_b = np.array([])
+    for point in cloud_1:
+        distance_each = distance_point_to_points(point, cloud_2)
+        distance_a_to_b = np.concatenate([distance_a_to_b, distance_each])
+    if not normalize:
+        return distance_a_to_b.reshape(cloud_1.shape[0], cloud_2.shape[0])
+    else:
+        distance_a_to_b = distance_a_to_b.reshape(cloud_1.shape[0], cloud_2.shape[0])
+        max_ = distance_a_to_b.max(axis=1)
+        distance = (distance_a_to_b.T / max_).T
+        return distance
 
 
 def compute_metrics(data: Dict, pred_transforms, clip_val=0.1) -> Dict:
@@ -236,6 +279,47 @@ def print_metrics(logger, summary_metrics: Dict, losses_by_iteration: List = Non
     logger.info('Recall: {:.6f}%'.format(summary_metrics['recall']*100))
 
 
+def save_similarity_plot(cloud_src: np.ndarray,
+                         cloud_ref: np.ndarray,
+                         cloud_pred: np.ndarray,
+                         gt_transform: torch.Tensor,
+                         save_dir: str,
+                         select_begin: int=0,
+                         select_num: int=10):
+    src_transformed = to_numpy(se3.transform(gt_transform, torch.from_numpy(cloud_src)))
+    similarity_src_ref    = 1 - distance_cloud_to_cloud(cloud_src, cloud_ref, normalize=True)
+    similarity_pred_ref   = 1 - distance_cloud_to_cloud(cloud_pred, cloud_ref, normalize=True)
+    similarity_ground_ref = 1 - distance_cloud_to_cloud(src_transformed, cloud_ref, normalize=True)
+
+
+
+    plt.imshow(
+        similarity_ground_ref[select_begin: select_begin+select_num, select_begin: select_begin+select_num])
+    plt.title('ground transform to ref')
+    plt.xticks([]), plt.yticks([]), plt.colorbar()
+    plt.savefig(os.path.join(save_dir, 'sim_ground_ref.png'))
+    plt.clf(), plt.cla()
+
+    plt.imshow(
+        similarity_src_ref[select_begin: select_begin + select_num, select_begin: select_begin + select_num])
+    plt.title('src to ref')
+    plt.xticks([]), plt.yticks([]), plt.colorbar()
+    plt.savefig(os.path.join(save_dir, 'sim_src_ref.png'))
+    plt.clf(), plt.cla()
+
+    plt.imshow(
+        similarity_pred_ref[select_begin: select_begin + select_num, select_begin: select_begin + select_num])
+    plt.title('pred to ref')
+    plt.xticks([]), plt.yticks([]), plt.colorbar()
+    plt.savefig(os.path.join(save_dir, 'sim_pred_ref.png'))
+    plt.clf(), plt.cla()
+
+    np.savetxt(os.path.join(save_dir, 'sim_ground_ref.txt'), similarity_ground_ref, fmt= '%.08f')
+    np.savetxt(os.path.join(save_dir, 'sim_src_ref.txt'), similarity_src_ref, fmt='%.08f')
+    np.savetxt(os.path.join(save_dir, 'sim_pred_ref.txt'), similarity_pred_ref, fmt='%.08f')
+
+
+
 def inference(data_loader, model: torch.nn.Module):
     """Runs inference over entire dataset
 
@@ -302,6 +386,8 @@ def inference(data_loader, model: torch.nn.Module):
             gt_transforms_batch = val_data['transform_gt']
             cloud_raw_batch = val_data['points_raw'][..., :3]
 
+            mask_batch = val_data['mask'] if _args.noise_type == 'crop' else None
+
             pred_transforms_batch = se3.concatenate(pred_transforms[_args.num_reg_iter - 1],
                                                     se3.inverse(gt_transforms_batch))
 
@@ -313,28 +399,44 @@ def inference(data_loader, model: torch.nn.Module):
                     if not os.path.exists(dump_dir_together_sample):
                         os.makedirs(dump_dir_together_sample)
 
-                    sample_cloud_raw = cloud_raw_batch[sample_idx]
+                    sample_cloud_raw = to_numpy(cloud_raw_batch[sample_idx])
                     sample_cloud_src, sample_cloud_ref, sample_cloud_pred = \
-                        cloud_src_batch[sample_idx], cloud_ref_batch[sample_idx], cloud_pred_batch[sample_idx]
+                        to_numpy(cloud_src_batch[sample_idx]), to_numpy(cloud_ref_batch[sample_idx]), to_numpy(cloud_pred_batch[sample_idx])
                     sample_feat_src, sample_feat_ref = \
-                        feat_src_batch[sample_idx], feat_ref_batch[sample_idx]
-                    sample_pred_transform = pred_transforms_batch[sample_idx]
-                    sample_gt_transform = gt_transforms_batch[sample_idx]
-
+                        to_numpy(feat_src_batch[sample_idx]), to_numpy(feat_ref_batch[sample_idx])
+                    sample_pred_transform = to_numpy(pred_transforms_batch[sample_idx])
+                    sample_gt_transform = to_numpy(gt_transforms_batch[sample_idx])
+                    sample_mask = to_numpy(mask_batch[sample_idx]) if _args.noise_type == 'crop' else None
                     # sample_feat_src = {
                     #     'xyz' : to_numpy(feat_src_outdim['xyz'][0]),
                     #     'dxyz': to_numpy(feat_src_outdim['dxyz'][0]),
                     #     'ppf' : to_numpy(feat_src_outdim['ppf'][0]),
                     # }
 
-                    generate_rectangular_obj(os.path.join(dir_raw, 'raw_cloud_{}.obj'.format(cnt)),
-                                             points=to_numpy(sample_cloud_raw))
-                    generate_rectangular_obj(os.path.join(dir_src, 'src_cloud_{}.obj'.format(cnt)),
-                                             points=to_numpy(sample_cloud_src))
-                    generate_rectangular_obj(os.path.join(dir_ref, 'ref_cloud_{}.obj'.format(cnt)),
-                                             points=to_numpy(sample_cloud_ref))
-                    generate_rectangular_obj(os.path.join(dir_pred_cloud, 'pred_cloud_{}.obj'.format(cnt)),
-                                             points=to_numpy(sample_cloud_pred))
+                    # generate_rectangular_obj(os.path.join(dir_raw, 'raw_cloud_{}.obj'.format(cnt)),
+                    #                          points=sample_cloud_raw)
+                    # generate_rectangular_obj(os.path.join(dir_src, 'src_cloud_{}.obj'.format(cnt)),
+                    #                          points=sample_cloud_src)
+                    # generate_rectangular_obj(os.path.join(dir_ref, 'ref_cloud_{}.obj'.format(cnt)),
+                    #                          points=sample_cloud_ref)
+                    # generate_rectangular_obj(os.path.join(dir_pred_cloud, 'pred_cloud_{}.obj'.format(cnt)),
+                    #                          points=sample_cloud_pred)
+                    #
+                    # np.savetxt(os.path.join(dir_pred_trans, 'pred_transform_{}.txt'.format(cnt)),
+                    #            sample_pred_transform, fmt='%.08f')
+                    # np.savetxt(os.path.join(dir_gt_trans, 'gt_transform_{}.txt'.format(cnt)),
+                    #            sample_gt_transform, fmt='%.08f')
+                    #
+                    # with open(os.path.join(dir_feat_src, 'feat_src_{}.txt'.format(cnt)), 'wb') as f:
+                    #     pickle.dump(sample_feat_src, f)
+                    # with open(os.path.join(dir_feat_ref, 'feat_ref_{}.txt'.format(cnt)), 'wb') as f:
+                    #     pickle.dump(sample_feat_ref, f)
+                    #
+                    #
+
+
+
+
 
                     generate_rectangular_obj(os.path.join(dump_dir_together_sample, 'raw_cloud.obj'),
                                              points=to_numpy(sample_cloud_raw))
@@ -345,25 +447,25 @@ def inference(data_loader, model: torch.nn.Module):
                     generate_rectangular_obj(os.path.join(dump_dir_together_sample, 'pred_cloud.obj'),
                                              points=to_numpy(sample_cloud_pred))
 
-                    np.savetxt(os.path.join(dir_pred_trans, 'pred_transform_{}.txt'.format(cnt)),
-                               to_numpy(sample_pred_transform), fmt='%.08f')
-                    np.savetxt(os.path.join(dir_gt_trans, 'gt_transform_{}.txt'.format(cnt)),
-                               to_numpy(sample_gt_transform), fmt='%.08f')
-
                     np.savetxt(os.path.join(dump_dir_together_sample, 'pred_transform.txt'),
                                to_numpy(sample_pred_transform), fmt='%.08f')
                     np.savetxt(os.path.join(dump_dir_together_sample, 'gt_transform.txt'),
                                to_numpy(sample_gt_transform), fmt='%.08f')
 
-                    with open(os.path.join(dir_feat_src, 'feat_src_{}.txt'.format(cnt)), 'wb') as f:
-                        pickle.dump(to_numpy(sample_feat_src), f)
-                    with open(os.path.join(dir_feat_ref, 'feat_ref_{}.txt'.format(cnt)), 'wb') as f:
-                        pickle.dump(to_numpy(sample_feat_ref), f)
+                    # with open(os.path.join(dump_dir_together_sample, 'feat_src.txt'), 'wb') as f:
+                    #     pickle.dump(to_numpy(sample_feat_src), f)
+                    # with open(os.path.join(dump_dir_together_sample, 'feat_ref.txt'), 'wb') as f:
+                    #     pickle.dump(to_numpy(sample_feat_ref), f)
 
-                    with open(os.path.join(dump_dir_together_sample, 'feat_src.txt'), 'wb') as f:
-                        pickle.dump(to_numpy(sample_feat_src), f)
-                    with open(os.path.join(dump_dir_together_sample, 'feat_ref.txt'), 'wb') as f:
-                        pickle.dump(to_numpy(sample_feat_ref), f)
+                    if _args.noise_type == 'crop':
+                        save_similarity_plot(cloud_src=sample_cloud_src, cloud_ref=sample_cloud_ref,
+                                             cloud_pred=sample_cloud_pred[sample_mask],
+                                             gt_transform=torch.from_numpy(sample_gt_transform),
+                                             save_dir=dump_dir_together_sample)
+                    else:
+                        save_similarity_plot(cloud_src=sample_cloud_src, cloud_ref=sample_cloud_ref,
+                                             cloud_pred=sample_cloud_pred, gt_transform=torch.from_numpy(sample_gt_transform),
+                                             save_dir=dump_dir_together_sample)
 
                     cnt += 1
 
