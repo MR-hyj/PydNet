@@ -183,7 +183,7 @@ def compute_losses(data: Dict, pred_transforms: List, endpoints: Dict,
         loss_fe = distance_between_pmds(feat_src_cluster, gt_transform, pred_transform, omega_1=omega_1,
                                         omega_2=omega_2)
     else:
-        raise NotImplementedError
+        loss_fe = 0
 
     _logger.debug('loss_tr: {}, loss_fe: {}, loss_fe type: {}'.format(loss_tr, loss_fe, loss_type))
     losses['tr'] = loss_tr
@@ -565,7 +565,6 @@ def run(train_set: data_loader.datasets.ModelNetHdf,
         _logger.info('Error encountered ending training at step {}'.format(global_step))
         _logger.error('{}'.format(e))
     finally:
-    # if True:
         _logger.info('Ending training. Number of steps = {}.'.format(global_step))
 
         plot_loss_curve(loss_train=loss_train_all, loss_val=loss_val_all,

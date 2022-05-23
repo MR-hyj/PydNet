@@ -73,7 +73,6 @@ np.set_printoptions(suppress=True)
 """
 
 
-
 def distance_point_to_points(point: np.ndarray,
                              points: np.ndarray) -> np.ndarray:
     """
@@ -174,24 +173,41 @@ def compute_metrics(data: Dict, pred_transforms, clip_val=0.1) -> Dict:
     return metrics
 
 
-def calculate_recall(metrics: dict):
-    """
-    the proportion of samples with r_mae<1 and t_mae<0.1
+def calculate_recall(metrics: dict,
+                     rot_lim: float = 1,
+                     trans_lim: float = 0.1):
+    """the proportion of samples with r_mae<rot_lim and t_mae<trans_lim
     Args:
-        metrics: dict
+        metrics:
+        rot_lim:
+        trans_lim:
 
     Returns:
-        float
 
     """
     num_samples = len(metrics['r_mae'])
-    r_mae_le_than = np.where(np.array(metrics['r_mae']) < 1)[0]
-    t_mae_le_than = np.where(np.array(metrics['t_mae']) < 0.1)[0]
+    r_mae_le_than = np.where(np.array(metrics['r_mae']) < rot_lim)[0]
+    t_mae_le_than = np.where(np.array(metrics['t_mae']) < trans_lim)[0]
     r_t_mae_le_than = np.intersect1d(r_mae_le_than, t_mae_le_than)
     num_goods = len(r_t_mae_le_than)
     recall = num_goods / num_samples
 
     return recall
+
+
+def calculate_recall_percentile(metrics: dict,
+                                percent: float = 0.25):
+    """calculate the top percent r_mae and t_mae in metrics
+    Args:
+        metrics: dict
+        percent: float
+
+    Returns:
+
+    """
+    r_mae_percent = np.percentile(metrics['r_mae'], q=100 * percent)
+    t_mae_percent = np.percentile(metrics['t_mae'], q=100 * percent)
+    return r_mae_percent, t_mae_percent
 
 
 def calculate_mean_metric_per_category(metrics: dict, key: str):
@@ -209,21 +225,22 @@ def calculate_mean_metric_per_category(metrics: dict, key: str):
 
     for idx in range(len(metrics['r_mae'])):
         if key.endswith('rmse'):
-            sample_key_value = np.sqrt(metrics[key[0]+'_mse'][idx])
+            sample_key_value = np.sqrt(metrics[key[0] + '_mse'][idx])
         else:
             sample_key_value = metrics[key][idx]
 
         sample_label = metrics['label'][idx]
-        if sample_label in key_per_category.keys():
-            key_per_category[sample_label] = np.concatenate([key_per_category[sample_label], [sample_key_value]])
-        else:
+        if sample_label not in key_per_category.keys():
             key_per_category[sample_label] = np.array([sample_key_value])
+        else:
+            key_per_category[sample_label] = np.concatenate([key_per_category[sample_label], [sample_key_value]])
     # _logger.info('key_per_category.keys: {}'.format(key_per_category.keys()))
 
     for each_category in key_per_category.keys():
         key_per_category[each_category] = np.mean(key_per_category[each_category])
 
     return key_per_category
+
 
 def summarize_metrics(metrics: dict, eval_mode=False):
     """Summaries computed metrices by taking mean over all data instances
@@ -243,7 +260,17 @@ def summarize_metrics(metrics: dict, eval_mode=False):
             summarized[k + '_rmse'] = np.sqrt(np.mean(metrics[k] ** 2))
         else:
             summarized[k] = np.mean(metrics[k])
-    summarized['recall'] = calculate_recall(metrics)
+    limits = [[1, 0.1], [0.5, 0.05],
+              [0.1, 0.01], [0.05, 0.005],
+              [0.01, 0.001]]
+    for rot_limit, trans_limit in limits:
+        summarized[f'Recall_{rot_limit}_{trans_limit}'] = calculate_recall(metrics, rot_lim=rot_limit,
+                                                                           trans_lim=trans_limit)
+
+    for recall_percent in [0.75, 0.5, 0.25, 0.10]:
+        summarized[f'Recall_r_mae_{recall_percent}'], summarized[f'Recall_t_mae_{recall_percent}'] = \
+            calculate_recall_percentile(metrics, recall_percent)
+
     mean_metric_each_category = {}
     if eval_mode:
         for key in ['r_rmse', 't_rmse', 'r_mae', 't_mae']:
@@ -276,7 +303,12 @@ def print_metrics(logger, summary_metrics: Dict, losses_by_iteration: List = Non
     logger.info('Clip Chamfer error: {:.10f}(mean-sq)'.format(
         summary_metrics['clip_chamfer_dist']
     ))
-    logger.info('Recall: {:.6f}%'.format(summary_metrics['recall']*100))
+
+    for key in summary_metrics:
+        if key.startswith('Recall_r_mae') or key.startswith('Recall_t_mae'):
+            logger.info('{}: {:.6f}'.format(key, summary_metrics[key]))
+        elif key.startswith('Recall'):
+            logger.info('{}: {:.6f}%'.format(key, summary_metrics[key] * 100))
 
 
 def save_similarity_plot(cloud_src: np.ndarray,
@@ -284,17 +316,15 @@ def save_similarity_plot(cloud_src: np.ndarray,
                          cloud_pred: np.ndarray,
                          gt_transform: torch.Tensor,
                          save_dir: str,
-                         select_begin: int=0,
-                         select_num: int=10):
+                         select_begin: int = 0,
+                         select_num: int = 10):
     src_transformed = to_numpy(se3.transform(gt_transform, torch.from_numpy(cloud_src)))
-    similarity_src_ref    = 1 - distance_cloud_to_cloud(cloud_src, cloud_ref, normalize=True)
-    similarity_pred_ref   = 1 - distance_cloud_to_cloud(cloud_pred, cloud_ref, normalize=True)
+    similarity_src_ref = 1 - distance_cloud_to_cloud(cloud_src, cloud_ref, normalize=True)
+    similarity_pred_ref = 1 - distance_cloud_to_cloud(cloud_pred, cloud_ref, normalize=True)
     similarity_ground_ref = 1 - distance_cloud_to_cloud(src_transformed, cloud_ref, normalize=True)
 
-
-
     plt.imshow(
-        similarity_ground_ref[select_begin: select_begin+select_num, select_begin: select_begin+select_num])
+        similarity_ground_ref[select_begin: select_begin + select_num, select_begin: select_begin + select_num])
     plt.title('ground transform to ref')
     plt.xticks([]), plt.yticks([]), plt.colorbar()
     plt.savefig(os.path.join(save_dir, 'sim_ground_ref.png'))
@@ -314,10 +344,9 @@ def save_similarity_plot(cloud_src: np.ndarray,
     plt.savefig(os.path.join(save_dir, 'sim_pred_ref.png'))
     plt.clf(), plt.cla()
 
-    np.savetxt(os.path.join(save_dir, 'sim_ground_ref.txt'), similarity_ground_ref, fmt= '%.08f')
+    np.savetxt(os.path.join(save_dir, 'sim_ground_ref.txt'), similarity_ground_ref, fmt='%.08f')
     np.savetxt(os.path.join(save_dir, 'sim_src_ref.txt'), similarity_src_ref, fmt='%.08f')
     np.savetxt(os.path.join(save_dir, 'sim_pred_ref.txt'), similarity_pred_ref, fmt='%.08f')
-
 
 
 def inference(data_loader, model: torch.nn.Module):
@@ -401,7 +430,8 @@ def inference(data_loader, model: torch.nn.Module):
 
                     sample_cloud_raw = to_numpy(cloud_raw_batch[sample_idx])
                     sample_cloud_src, sample_cloud_ref, sample_cloud_pred = \
-                        to_numpy(cloud_src_batch[sample_idx]), to_numpy(cloud_ref_batch[sample_idx]), to_numpy(cloud_pred_batch[sample_idx])
+                        to_numpy(cloud_src_batch[sample_idx]), to_numpy(cloud_ref_batch[sample_idx]), to_numpy(
+                            cloud_pred_batch[sample_idx])
                     sample_feat_src, sample_feat_ref = \
                         to_numpy(feat_src_batch[sample_idx]), to_numpy(feat_ref_batch[sample_idx])
                     sample_pred_transform = to_numpy(pred_transforms_batch[sample_idx])
@@ -434,10 +464,6 @@ def inference(data_loader, model: torch.nn.Module):
                     #
                     #
 
-
-
-
-
                     generate_rectangular_obj(os.path.join(dump_dir_together_sample, 'raw_cloud.obj'),
                                              points=to_numpy(sample_cloud_raw))
                     generate_rectangular_obj(os.path.join(dump_dir_together_sample, 'src_cloud.obj'),
@@ -464,7 +490,8 @@ def inference(data_loader, model: torch.nn.Module):
                                              save_dir=dump_dir_together_sample)
                     else:
                         save_similarity_plot(cloud_src=sample_cloud_src, cloud_ref=sample_cloud_ref,
-                                             cloud_pred=sample_cloud_pred, gt_transform=torch.from_numpy(sample_gt_transform),
+                                             cloud_pred=sample_cloud_pred,
+                                             gt_transform=torch.from_numpy(sample_gt_transform),
                                              save_dir=dump_dir_together_sample)
 
                     cnt += 1
@@ -488,12 +515,14 @@ def inference(data_loader, model: torch.nn.Module):
 
                 for i_data in range(perm_matrices.shape[0]):
                     sparse_perm_matrices = []
-                    if _args.save_sparse_perm_metrix:
-                        sparse_perm_matrices.append(sparse.coo_matrix(perm_matrices[i_data, perm_matrices.shape[1]-1, :, :]))
+
+                    if _args.save_sparse_perm_matrix:
+                        sparse_perm_matrices.append(
+                            sparse.coo_matrix(perm_matrices[i_data, perm_matrices.shape[1] - 1, :, :]))
                     else:
-                        sparse_perm_matrices.append(perm_matrices[i_data, perm_matrices.shape[1]-1, :, :])
+                        sparse_perm_matrices.append(perm_matrices[i_data, perm_matrices.shape[1] - 1, :, :])
                     # for i_iter in range(perm_matrices.shape[1]):
-                        # sparse_perm_matrices.append(sparse.coo_matrix(perm_matrices[i_data, i_iter, :, :]))
+                    # sparse_perm_matrices.append(sparse.coo_matrix(perm_matrices[i_data, i_iter, :, :]))
                     endpoints_out['perm_matrices'].append(sparse_perm_matrices)
 
     _logger.info('Total inference time: {}s'.format(total_time))
@@ -532,7 +561,6 @@ def evaluate(pred_transforms, data_loader: torch.utils.data.dataloader.DataLoade
         dict_all_to_device(data, _device)
         # data.keys: (batch_size, n_points, X)
 
-
         batch_size = 0
 
         for i_iter in range(pred_transforms.shape[1]):
@@ -545,7 +573,6 @@ def evaluate(pred_transforms, data_loader: torch.utils.data.dataloader.DataLoade
             for k in metrics:
                 metrics_for_iter[i_iter][k].append(metrics[k])
         num_processed += batch_size
-
 
     for i_iter in range(len(metrics_for_iter)):
         # metrics_for_iter[i_iter][key]: (num_samples,)
@@ -568,11 +595,13 @@ def save_eval_data(pred_transforms, endpoints, metrics: List, summary_metrics, s
 
     # Save endpoints if any
     for k in endpoints:
+
         if isinstance(endpoints[k], np.ndarray):
             np.save(os.path.join(save_path, '{}.npy'.format(k)), endpoints[k])
         else:
-            with open(os.path.join(save_path, '{}.pickle'.format(k)), 'wb') as fid:
-                pickle.dump(endpoints[k], fid)
+            if not _args.do_not_save_perm_matrix:
+                with open(os.path.join(save_path, '{}.pickle'.format(k)), 'wb') as fid:
+                    pickle.dump(endpoints[k], fid)
 
     # Save metrics: Write each iteration to a different worksheet.
     writer = pd.ExcelWriter(os.path.join(save_path, 'metrics.xlsx'))
