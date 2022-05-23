@@ -1,3 +1,10 @@
+# Version-0.2.5.1
+
+## Update
+
+- 选择是否保存`perm_matrix`
+- 细化recall
+
 # Version-0.2.5
 
 ## Update
