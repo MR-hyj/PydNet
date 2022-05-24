@@ -35,7 +35,7 @@ def to_numpy(tensor):
     elif isinstance(tensor, np.ndarray):
         return tensor
     else:
-        raise NotImplementedError
+        return tensor
 
 
 class CheckPointManager(object):

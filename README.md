@@ -1,3 +1,73 @@
+# Version-0.2.5.2
+
+## Update
+
+- 新建`tests/plot_general_exp_recall.py`, 绘制泛化能力实验结果
+- 调整`train.py`的`recall`这个`key`
+
+## 泛化能力实验对应特征分量及改动
+
+- A
+    - `xyz, dxyz, Sc, nr_ni, |dxyz| `
+    - `--loss_type pmd`
+    
+- B
+    - `xyz, dxyz, Sc, |dxyz| `
+    
+    - `--loss_type pmd`
+    
+    - ```python
+        # modules/pointnet_util.py
+        # sample_and_group_multi
+        pmd = torch.stack([angle_SA, angle_SB, angle_SC, ], dim=-1)
+        return {'xyz': new_xyz, 'dxyz': xyz_feat, 'pmd': pmd}
+        
+        # modules/feature_net.py
+        _raw_features_sizes = {'xyz': 3, 'dxyz': 3, 'pmd': 3}
+        ```
+    
+- C
+
+    - `xyz, dxyz`
+
+    - 不要指定`--loss_type`
+
+    - `--features xyz dxyz`
+
+    - ```python
+        # modules/pointnet_util.py
+        # sample_and_group_multi
+        return {'xyz': new_xyz, 'dxyz': xyz_feat}
+        ```
+
+- D
+
+    - `xyz, Sc, nr_ni, |dxyz|`
+
+    - `--features xyz pmd`
+
+    - 不要指定`--loss_type`
+
+    - ```python
+        # modules/pointnet_util.py
+        # sample_and_group_multi
+        pmd = torch.stack([angle_SA, angle_SB, angle_SC, nr_ni, d_norm], dim=-1)
+        return {'xyz': new_xyz, 'pmd': pmd}
+        
+        # modules/feature_net.py
+        _raw_features_sizes = {'xyz': 3, 'dxyz': 3, 'pmd': 5}
+        ```
+
+        
+
+
+# Version-0.2.5.1
+
+## Update
+
+- 选择是否保存`perm_matrix`
+- 细化recall
+
 # Version-0.2.5
 
 ## Update

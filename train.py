@@ -183,7 +183,7 @@ def compute_losses(data: Dict, pred_transforms: List, endpoints: Dict,
         loss_fe = distance_between_pmds(feat_src_cluster, gt_transform, pred_transform, omega_1=omega_1,
                                         omega_2=omega_2)
     else:
-        raise NotImplementedError
+        loss_fe = 0
 
     _logger.debug('loss_tr: {}, loss_fe: {}, loss_fe type: {}'.format(loss_tr, loss_fe, loss_type))
     losses['tr'] = loss_tr
@@ -553,7 +553,7 @@ def run(train_set: data_loader.datasets.ModelNetHdf,
                     err_t_rmse.append(metrics_batch['err_t_rmse'])
                     chamfer_distance.append(metrics_batch['chamfer_dist'])
                     loss_val_all.append(val_loss)
-                    recalls.append(metrics_batch['recall'])
+                    recalls.append(metrics_batch['recall_list'])
                     saver.save(model, optimizer, step=global_step, score=val_score)
                     model.train()
 
@@ -565,7 +565,6 @@ def run(train_set: data_loader.datasets.ModelNetHdf,
         _logger.info('Error encountered ending training at step {}'.format(global_step))
         _logger.error('{}'.format(e))
     finally:
-    # if True:
         _logger.info('Ending training. Number of steps = {}.'.format(global_step))
 
         plot_loss_curve(loss_train=loss_train_all, loss_val=loss_val_all,
@@ -607,7 +606,7 @@ def plot_loss_curve(loss_tr_type: str = None,
     err = kwargs.get('err', None)
     etm = kwargs.get('etm', None)
     etr = kwargs.get('etr', None)
-    recall = kwargs.get('recall', None)
+    recall = kwargs.get('recall_list', None)
 
     assert loss_train is not None, _logger.error('No train loss in {}'.format(kwargs.keys()))
 
@@ -661,8 +660,8 @@ def plot_loss_curve(loss_tr_type: str = None,
                           xlabel='validate epoch', ylabel='err translation rmse', label='err translation rmse')
 
     if recall is not None:
-        plot_single_curve(data=recall, save_name='recall', title='recall',
-                          xlabel='validate epoch', ylabel='recall', label='recall')
+        plot_single_curve(data=recall, save_name='recall_list', title='recall_list',
+                          xlabel='validate epoch', ylabel='recall_list', label='recall_list')
 
 
 

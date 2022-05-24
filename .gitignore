@@ -2,7 +2,5 @@
 __pycache__/
 datasets/
 *results*/
-feat_dumped*/
-logs_pydnet/
-logs_rpmnet/
-model_size_test_results/
+*feat*/
+*logs*/

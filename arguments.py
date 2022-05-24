@@ -50,7 +50,7 @@ def pydnet_arguments():
     parser.add_argument('--radius', type=float, default=0.3, help='Neighborhood radius for computing pointnet features')
     parser.add_argument('--num_neighbors', type=int, default=3, metavar='N', help='Max num of neighbors to use')
     # RPMNet settings
-    parser.add_argument('--features', type=str, choices=['pmd', 'dxyz', 'xyz'], default=['pmd', 'dxyz', 'xyz'],
+    parser.add_argument('--features', type=str, choices=['pmd', 'dxyz', 'xyz'], default=['xyz', 'dxyz', 'pmd'],
                         nargs='+', help='Which features to use. Default: all')
     parser.add_argument('--feat_dim', type=int, default=96,
                         help='Feature dimension (to compute distances on). Other numbers will be scaled accordingly')
@@ -61,7 +61,7 @@ def pydnet_arguments():
                         help='Number of outer iterations used for registration (only during inference)')
     # parser.add_argument('--loss_type', type=str, choices=['mse', 'mae'], default='mae',
     #                     help='Loss to be optimized')
-    parser.add_argument('--loss_type', type=str, choices=['cluster', 'pmd'], default='pmd',
+    parser.add_argument('--loss_type', type=str, choices=['cluster', 'pmd', None], default=None,
                         help='Loss_fe to be optimized')
     parser.add_argument('--loss_lambda', type=float, default=0.05, help='Feature loss')
     parser.add_argument('--loss_omega_1', type=float, default=3, help='Weight of xyz and dxyz in pmd distance')
@@ -128,7 +128,10 @@ def pydnet_eval_arguments():
     # Save out evaluation data_loader for further analysis
     parser.add_argument('--eval_save_path', type=str, default='./eval_results',
                         help='Output data_loader to save evaluation results')
-    parser.add_argument('--save_sparse_perm_metrix', action='store_true', default=False)
+    parser.add_argument('--save_sparse_perm_matrix', action='store_true', default=False)
+    parser.add_argument('--do_not_save_perm_matrix',
+                        action='store_true',
+                        help='whether to shuffle points when loading data')
     parser.description = 'PydNet evaluation'
     return parser
 
