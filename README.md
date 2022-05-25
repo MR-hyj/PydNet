@@ -55,7 +55,7 @@
         return {'xyz': new_xyz, 'pmd': pmd}
         
         # modules/feature_net.py
-        _raw_features_sizes = {'xyz': 3, 'dxyz': 3, 'pmd': 5}
+        _raw_features_sizes = {'xyz': 3, 'dxyz': 3, 'pmd': 1}
         ```
 
         
