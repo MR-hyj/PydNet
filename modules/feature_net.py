@@ -16,7 +16,7 @@ import torch.nn as nn
 from modules.pointnet_util import sample_and_group_multi
 
 
-_raw_features_sizes = {'xyz': 3, 'dxyz': 3, 'pmd': 5}
+_raw_features_sizes = {'xyz': 3, 'dxyz': 3, 'pmd': 1}
 _raw_features_order = {'xyz': 0, 'dxyz': 1, 'pmd': 2}
 
 

@@ -42,7 +42,7 @@
 
 - D
 
-    - `xyz, Sc, nr_ni, |dxyz|`
+    - `xyz, nr_ni`
 
     - `--features xyz pmd`
 
@@ -51,7 +51,7 @@
     - ```python
         # modules/pointnet_util.py
         # sample_and_group_multi
-        pmd = torch.stack([angle_SA, angle_SB, angle_SC, nr_ni, d_norm], dim=-1)
+        pmd = torch.stack([nr_ni], dim=-1)
         return {'xyz': new_xyz, 'pmd': pmd}
         
         # modules/feature_net.py
