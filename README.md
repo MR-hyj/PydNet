@@ -58,7 +58,23 @@
         _raw_features_sizes = {'xyz': 3, 'dxyz': 3, 'pmd': 1}
         ```
 
-        
+- E
+
+- `xyz, dxyz, nr_ni`
+
+- `--features xyz dxyz pmd`
+
+- 不要指定`--loss_type`
+
+- ```python
+    # modules/pointnet_util.py
+    # sample_and_group_multi
+    pmd = torch.stack([nr_ni, d_norm], dim=-1)
+    return {'xyz': new_xyz, 'dxyz': xtz_feat, 'pmd': pmd}
+    
+    # modules/feature_net.py
+    _raw_features_sizes = {'xyz': 3, 'dxyz': 3, 'pmd': 2}
+    ```
 
 
 # Version-0.2.5.1
