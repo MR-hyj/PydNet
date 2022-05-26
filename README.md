@@ -15,16 +15,16 @@
     - `xyz, dxyz, Sc, |dxyz| `
     
     - `--loss_type pmd`
-    
-    - ```python
-        # modules/pointnet_util.py
-        # sample_and_group_multi
-        pmd = torch.stack([angle_SA, angle_SB, angle_SC, ], dim=-1)
-        return {'xyz': new_xyz, 'dxyz': xyz_feat, 'pmd': pmd}
+
+```python
+# modules/pointnet_util.py
+# sample_and_group_multi
+pmd = torch.stack([angle_SA, angle_SB, angle_SC, ], dim=-1)
+return {'xyz': new_xyz, 'dxyz': xyz_feat, 'pmd': pmd}
         
-        # modules/feature_net.py
-        _raw_features_sizes = {'xyz': 3, 'dxyz': 3, 'pmd': 3}
-        ```
+# modules/feature_net.py
+_raw_features_sizes = {'xyz': 3, 'dxyz': 3, 'pmd': 3}
+```
     
 - C
 
@@ -34,11 +34,11 @@
 
     - `--features xyz dxyz`
 
-    - ```python
-        # modules/pointnet_util.py
-        # sample_and_group_multi
-        return {'xyz': new_xyz, 'dxyz': xyz_feat}
-        ```
+```python
+# modules/pointnet_util.py
+# sample_and_group_multi
+return {'xyz': new_xyz, 'dxyz': xyz_feat}
+```
 
 - D
 
@@ -48,33 +48,34 @@
 
     - 不要指定`--loss_type`
 
-    - ```python
-        # modules/pointnet_util.py
-        # sample_and_group_multi
-        pmd = torch.stack([nr_ni], dim=-1)
-        return {'xyz': new_xyz, 'pmd': pmd}
+```python
+# modules/pointnet_util.py
+# sample_and_group_multi
+pmd = torch.stack([nr_ni], dim=-1)
+return {'xyz': new_xyz, 'pmd': pmd}
         
-        # modules/feature_net.py
-        _raw_features_sizes = {'xyz': 3, 'dxyz': 3, 'pmd': 1}
-        ```
+# modules/feature_net.py
+_raw_features_sizes = {'xyz': 3, 'dxyz': 3, 'pmd': 1}
+```
 
 - E
 
-- `xyz, dxyz, nr_ni`
+  - `xyz, dxyz, nr_ni`
 
-- `--features xyz dxyz pmd`
+  - `--features xyz dxyz pmd`
 
-- 不要指定`--loss_type`
+  - 不要指定`--loss_type`
 
-- ```python
-    # modules/pointnet_util.py
-    # sample_and_group_multi
-    pmd = torch.stack([nr_ni, d_norm], dim=-1)
-    return {'xyz': new_xyz, 'dxyz': xtz_feat, 'pmd': pmd}
+```python
+# modules/pointnet_util.py
+# sample_and_group_multi
+pmd = torch.stack([nr_ni, d_norm], dim=-1)
+return {'xyz': new_xyz, 'dxyz': xtz_feat, 'pmd': pmd}
     
-    # modules/feature_net.py
-    _raw_features_sizes = {'xyz': 3, 'dxyz': 3, 'pmd': 2}
-    ```
+# modules/feature_net.py
+_raw_features_sizes = {'xyz': 3, 'dxyz': 3, 'pmd': 2}
+```
+  
 
 
 # Version-0.2.5.1
