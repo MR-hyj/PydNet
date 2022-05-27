@@ -26,9 +26,12 @@ mode = args.mode
 metric = args.metric
 noise_type = args.noise_type
 IDs = args.ID
-dir_root = os.path.join('../overall_eval_results/recall_percent/', metric)
+dir_root = os.path.join('./overall_eval_results/recall_percent/', metric)
 
-recall_percent: list = []
+clip = {
+    'r_mae': 8,
+    't_mae': 0.2
+}
 
 plot_color_noise_type = {
     'Clean': 'r',
@@ -43,8 +46,8 @@ plot_color_noise_type = {
 }
 
 
-def calculate_recall_percent_curve(file:str):
-    data = np.loadtxt(file)
+def calculate_recall_percent_curve(file:str, clip:float=8):
+    data = np.loadtxt(file).clip(min=-clip, max=clip)
     size = len(data)
     recall = np.zeros(shape=(101, ))
     for i in range(0, 101):
@@ -57,6 +60,7 @@ def plot_recall_curve(recall_list: list,
                       **kwargs):
     size_list = len(recall_list)
     color_list = kwargs.get('color_list', ['r', 'g', 'b', 'm'])
+
     for i in range(size_list):
         size_recall = len(recall_list[i])
         y = range(0, size_recall)
@@ -68,7 +72,6 @@ def plot_recall_curve(recall_list: list,
     plt.xlabel(xlabel), plt.ylabel('recall %')
     plt.legend()
     plt.title(title)
-    plt.savefig(save_name)
     plt.show()
     plt.cla()
 
@@ -77,26 +80,28 @@ if __name__ == '__main__':
 
 
     if 'per_noise_type' == mode:
-        target_noise_type = noise_type[0]
-        color_list = []
-        for id in IDs:
-            recall_percent.append(calculate_recall_percent_curve(os.path.join(dir_root, f'{target_noise_type}_{id}.txt')))
-            color_list.append(plot_color_noise_type[id])
+        for target_noise_type in noise_type:
+            recall_percent: list = []
+            color_list = []
+            for id in IDs:
+                recall_percent.append(calculate_recall_percent_curve(os.path.join(dir_root, f'{target_noise_type}_{id}.txt'), clip=clip[metric]))
+                color_list.append(plot_color_noise_type[id])
 
-        plot_recall_curve(recall_list=recall_percent, label_list=IDs,
-                          xlabel=metric, title=f'{target_noise_type}-{metric} recall', color_list=color_list,
-                          save_name=os.path.join(dir_root, f'{target_noise_type}-{metric}_recall.png'))
+            plot_recall_curve(recall_list=recall_percent, label_list=IDs,
+                              xlabel=metric, title=f'{mode}-{target_noise_type}-{metric} recall', color_list=color_list,
+                              save_name=os.path.join(dir_root, f'{mode}-{target_noise_type}-{metric}_recall.png'))
         # plot
 
     elif 'per_ID' == mode:
-        target_id = IDs[0]
-        color_list = []
-        for nt in noise_type:
-            recall_percent.append(calculate_recall_percent_curve(os.path.join(dir_root, f'{nt}_{target_id}.txt')))
-            color_list.append(plot_color_noise_type[nt])
-        plot_recall_curve(recall_list=recall_percent, label_list=noise_type,
-                          xlabel=metric, title=f'{target_id}-{metric} recall', color_list=color_list,
-                          save_name=os.path.join(dir_root, f'{target_id}-{metric}_recall.png'))
+        for target_id in IDs:
+            color_list = []
+            recall_percent: list = []
+            for nt in noise_type:
+                recall_percent.append(calculate_recall_percent_curve(os.path.join(dir_root, f'{nt}_{target_id}.txt'), clip=clip[metric]))
+                color_list.append(plot_color_noise_type[nt])
+            plot_recall_curve(recall_list=recall_percent, label_list=noise_type,
+                              xlabel=metric, title=f'{mode}-{target_id}-{metric} recall', color_list=color_list,
+                              save_name=os.path.join(dir_root, f'{mode}-{target_id}-{metric}_recall.png'))
 
     else:
         raise NotImplementedError

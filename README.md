@@ -1,3 +1,9 @@
+# Version-0.2.5.3
+
+## Updates
+
+- 新建`tests/filter_best_ckpt.sh`和`tests/filter_best_ckpts.py`保留best-model.pth, 删除非best的pth
+
 # Version-0.2.5.2
 
 ## Update
@@ -25,7 +31,7 @@ return {'xyz': new_xyz, 'dxyz': xyz_feat, 'pmd': pmd}
 # modules/feature_net.py
 _raw_features_sizes = {'xyz': 3, 'dxyz': 3, 'pmd': 3}
 ```
-    
+
 - C
 
     - `xyz, dxyz`
@@ -75,7 +81,7 @@ return {'xyz': new_xyz, 'dxyz': xtz_feat, 'pmd': pmd}
 # modules/feature_net.py
 _raw_features_sizes = {'xyz': 3, 'dxyz': 3, 'pmd': 2}
 ```
-  
+
 
 
 # Version-0.2.5.1
