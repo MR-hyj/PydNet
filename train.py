@@ -553,7 +553,7 @@ def run(train_set: data_loader.datasets.ModelNetHdf,
                     err_t_rmse.append(metrics_batch['err_t_rmse'])
                     chamfer_distance.append(metrics_batch['chamfer_dist'])
                     loss_val_all.append(val_loss)
-                    recalls.append(metrics_batch['recall_list'])
+                    recalls.append(metrics_batch['Recall_1_0.1'])
                     saver.save(model, optimizer, step=global_step, score=val_score)
                     model.train()
 
@@ -593,7 +593,6 @@ def plot_single_curve(data,
 
 
 def plot_loss_curve(loss_tr_type: str = None,
-                    *args,
                     **kwargs):
 
     _logger.info('Saving loss curve in log directory')
@@ -606,7 +605,7 @@ def plot_loss_curve(loss_tr_type: str = None,
     err = kwargs.get('err', None)
     etm = kwargs.get('etm', None)
     etr = kwargs.get('etr', None)
-    recall = kwargs.get('recall_list', None)
+    recall = kwargs.get('recall', None)
 
     assert loss_train is not None, _logger.error('No train loss in {}'.format(kwargs.keys()))
 
@@ -660,8 +659,8 @@ def plot_loss_curve(loss_tr_type: str = None,
                           xlabel='validate epoch', ylabel='err translation rmse', label='err translation rmse')
 
     if recall is not None:
-        plot_single_curve(data=recall, save_name='recall_list', title='recall_list',
-                          xlabel='validate epoch', ylabel='recall_list', label='recall_list')
+        plot_single_curve(data=recall, save_name='recall', title='recall',
+                          xlabel='validate epoch', ylabel='recall', label='recall')
 
 
 

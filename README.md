@@ -18,9 +18,9 @@
     - `--loss_type pmd`
     
 - B
-    - `xyz, dxyz, Sc, |dxyz| `
+    - `xyz, dxyz, Sc`
     
-    - `--loss_type pmd`
+    - 不要指定`--loss_type pmd`
 
 ```python
 # modules/pointnet_util.py

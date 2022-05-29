@@ -313,11 +313,12 @@ def sample_and_group_multi(npoint: int, radius: float, nsample: int, xyz: torch.
 
     # pmd = torch.stack([angle_SA, angle_SB, angle_SC, nr_ni, d_norm], dim=-1) # A
     # pmd = torch.stack([angle_SA, angle_SB, angle_SC,], dim=-1) # B
-    pmd = torch.stack([nr_ni], dim=-1)  # B
+    pmd = torch.stack([nr_ni], dim=-1)  # D, E
+
 
     # return {'xyz': new_xyz, 'dxyz': xyz_feat} # C
     return {'xyz': new_xyz, 'pmd': pmd}  # D
-    # return {'xyz': new_xyz, 'dxyz': xyz_feat, 'pmd': pmd} # A
+    # return {'xyz': new_xyz, 'dxyz': xyz_feat, 'pmd': pmd} # A, B, E
 
 
 

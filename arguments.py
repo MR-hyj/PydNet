@@ -76,8 +76,6 @@ def pydnet_arguments():
                         help='Pretrained network to load from. Optional for train, required for inference.')
     parser.add_argument('--gpu', default=0, type=int, metavar='DEVICE',
                         help='GPU to use, ignored if no GPU is present. Set to negative to use cpu')
-    parser.add_argument('--mode', default='client', type=str, help='For Pycharm DEBUG Only')
-    parser.add_argument('--port', default=59347, type=int, help='For Pycharm DEBUG Only')
     parser.add_argument('--feat_dumpdir', '-fd', type=str, metavar='PATH',
                         default=None,
                         help='directory in which the extracted src features will be dumped. Not save when set False')
@@ -85,6 +83,9 @@ def pydnet_arguments():
                         action='store_true',
                         help='whether to shuffle points when loading data')
     parser.add_argument('--parameter_net_norm_type', type=str, choices=['InstanceNorm', 'GroupNorm'], default='InstanceNorm')
+    parser.add_argument('--sigma_square', type=float, default=0.01, help='Gaussian Noise')
+    parser.add_argument('--clip',  type=float, default=0.05, help='Clip for Gaussian Noise')
+
 
     return parser
 

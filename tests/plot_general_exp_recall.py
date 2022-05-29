@@ -26,7 +26,7 @@ mode = args.mode
 metric = args.metric
 noise_type = args.noise_type
 IDs = args.ID
-dir_root = os.path.join('./overall_eval_results/recall_percent/', metric)
+dir_root = os.path.join('./eval_results/overall_eval_results/recall_percent/', metric)
 
 clip = {
     'r_mae': 8,

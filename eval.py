@@ -370,6 +370,7 @@ def inference(data_loader, model: torch.nn.Module):
     endpoints_out = defaultdict(list)
     total_rotation = []
     cnt = 0
+    num_samples = 0
     with torch.no_grad():
 
         if _args.feat_dumpdir is not None:
@@ -394,7 +395,7 @@ def inference(data_loader, model: torch.nn.Module):
                 dump_dir_together_batch = os.path.join(dump_dir_together, 'batch_{}/'.format(batch_idx))
                 if not os.path.exists(dump_dir_together_batch):
                     os.makedirs(dump_dir_together_batch)
-
+            num_samples += val_data['points_src'].shape[0]
             rot_trace = val_data['transform_gt'][:, 0, 0] + val_data['transform_gt'][:, 1, 1] + \
                         val_data['transform_gt'][:, 2, 2]
 
@@ -507,25 +508,25 @@ def inference(data_loader, model: torch.nn.Module):
 
             # Saves match matrix. We only save the top matches to save storage/time.
             # However, this still takes quite a bit of time to save. Comment out if not needed.
-            if 'perm_matrices' in endpoints:
-                perm_matrices = to_numpy(torch.stack(endpoints['perm_matrices'], dim=1))
-                # thresh = np.percentile(perm_matrices, 99.9, axis=[2, 3])  # Only retain top 0.1% of entries
-                # below_thresh_mask = perm_matrices < thresh[:, :, None, None]
-                # perm_matrices[below_thresh_mask] = 0.0
-
-                for i_data in range(perm_matrices.shape[0]):
-                    sparse_perm_matrices = []
-
-                    if _args.save_sparse_perm_matrix:
-                        sparse_perm_matrices.append(
-                            sparse.coo_matrix(perm_matrices[i_data, perm_matrices.shape[1] - 1, :, :]))
-                    else:
-                        sparse_perm_matrices.append(perm_matrices[i_data, perm_matrices.shape[1] - 1, :, :])
-                    # for i_iter in range(perm_matrices.shape[1]):
-                    # sparse_perm_matrices.append(sparse.coo_matrix(perm_matrices[i_data, i_iter, :, :]))
-                    endpoints_out['perm_matrices'].append(sparse_perm_matrices)
-
-    _logger.info('Total inference time: {}s'.format(total_time))
+            # if 'perm_matrices' in endpoints:
+            #     perm_matrices = to_numpy(torch.stack(endpoints['perm_matrices'], dim=1))
+            #     # thresh = np.percentile(perm_matrices, 99.9, axis=[2, 3])  # Only retain top 0.1% of entries
+            #     # below_thresh_mask = perm_matrices < thresh[:, :, None, None]
+            #     # perm_matrices[below_thresh_mask] = 0.0
+            #
+            #     for i_data in range(perm_matrices.shape[0]):
+            #         sparse_perm_matrices = []
+            #
+            #         if _args.save_sparse_perm_matrix:
+            #             sparse_perm_matrices.append(
+            #                 sparse.coo_matrix(perm_matrices[i_data, perm_matrices.shape[1] - 1, :, :]))
+            #         else:
+            #             sparse_perm_matrices.append(perm_matrices[i_data, perm_matrices.shape[1] - 1, :, :])
+            #         # for i_iter in range(perm_matrices.shape[1]):
+            #         # sparse_perm_matrices.append(sparse.coo_matrix(perm_matrices[i_data, i_iter, :, :]))
+            #         endpoints_out['perm_matrices'].append(sparse_perm_matrices)
+    _logger.info('Total sample: {}'.format(num_samples))
+    _logger.info('Total inference time: {}s, avg time sample: {}s'.format(total_time, total_time/num_samples))
     total_rotation = np.concatenate(total_rotation, axis=0)
     _logger.info('Rotation range in data: {}(avg), {}(max)'.format(np.mean(total_rotation), np.max(total_rotation)))
     pred_transforms_all = np.concatenate(pred_transforms_all, axis=0)

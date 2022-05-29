@@ -26,8 +26,10 @@ def get_train_datasets(args: argparse.Namespace):
         val_categories = [line.rstrip('\n') for line in open(args.val_categoryfile)]
         val_categories.sort()
 
-    train_transforms, val_transforms = get_transforms(args.noise_type, args.rot_mag, args.trans_mag,
-                                                      args.num_points, args.partial, shuffle_points=not args.do_not_shuffle_points)
+    train_transforms, val_transforms = get_transforms(noise_type=args.noise_type, rot_mag=args.rot_mag,
+                                                      trans_mag=args.trans_mag, num_points=args.num_points,
+                                                      partial_p_keep=args.partial, sigma_square=args.sigma_square,
+                                                      clip=args.clip, shuffle_points=not args.do_not_shuffle_points)
     _logger.info('Train transforms: {}'.format(', '.join([type(t).__name__ for t in train_transforms])))
     _logger.info('Val transforms: {}'.format(', '.join([type(t).__name__ for t in val_transforms])))
     train_transforms = torchvision.transforms.Compose(train_transforms)
@@ -50,8 +52,10 @@ def get_test_datasets(args: argparse.Namespace):
         test_categories = [line.rstrip('\n') for line in open(args.test_category_file)]
         test_categories.sort()
 
-    _, test_transforms = get_transforms(args.noise_type, args.rot_mag, args.trans_mag,
-                                        args.num_points, args.partial, shuffle_points=not args.do_not_shuffle_points)
+    _, test_transforms = get_transforms(noise_type=args.noise_type, rot_mag=args.rot_mag, trans_mag=args.trans_mag,
+                                        num_points=args.num_points, partial_p_keep=args.partial,
+                                        sigma_square=args.sigma_square, clip=args.clip,
+                                        shuffle_points=not args.do_not_shuffle_points)
     _logger.info('Test transforms: {}'.format(', '.join([type(t).__name__ for t in test_transforms])))
     test_transforms = torchvision.transforms.Compose(test_transforms)
 
@@ -66,7 +70,8 @@ def get_test_datasets(args: argparse.Namespace):
 
 def get_transforms(noise_type: str,
                    rot_mag: float = 45.0, trans_mag: float = 0.5,
-                   num_points: int = 1024, partial_p_keep: List = None, shuffle_points: bool=True):
+                   num_points: int = 1024, partial_p_keep: List = None, shuffle_points: bool=True,
+                   sigma_square=0.01, clip=0.05,):
     """Get the list of transformation to be used for training or evaluating RegNet
 
     Args:
@@ -117,13 +122,13 @@ def get_transforms(noise_type: str,
             train_transforms = [Transforms.SplitSourceRef(),
                                 Transforms.RandomTransformSE3_euler(rot_mag=rot_mag, trans_mag=trans_mag),
                                 Transforms.Resampler(num_points),
-                                Transforms.RandomJitter(),
+                                Transforms.RandomJitter(scale=sigma_square, clip=clip),
                                 Transforms.ShufflePoints()]
             test_transforms = [Transforms.SetDeterministic(),
                                Transforms.SplitSourceRef(),
                                Transforms.RandomTransformSE3_euler(rot_mag=rot_mag, trans_mag=trans_mag),
                                Transforms.Resampler(num_points),
-                               Transforms.RandomJitter(),
+                               Transforms.RandomJitter(scale=sigma_square, clip=clip),
                                Transforms.ShufflePoints()]
         else:
             train_transforms = [Transforms.SplitSourceRef(),
