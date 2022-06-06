@@ -1,3 +1,10 @@
+# Version-0.2.6
+
+## Updates
+
+- 优化了`points-to-points`距离的计算, 省去一个for循环
+- 修复了计算`similarity`时, 给`src`多加了一个`transform_gt`的bug
+
 # Version-0.2.5.3
 
 ## Updates
