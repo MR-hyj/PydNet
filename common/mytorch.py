@@ -127,7 +127,7 @@ class CheckPointManager(object):
         if os.path.isdir(save_path):
             save_path = os.path.join(save_path, 'model-best.pth')
 
-        state = torch.load(save_path)
+        state = torch.load(save_path, map_location='cpu')
 
         step = 0
         if 'step' in state:

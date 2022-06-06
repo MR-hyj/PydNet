@@ -73,24 +73,6 @@ np.set_printoptions(suppress=True)
 """
 
 
-def distance_point_to_points(point: np.ndarray,
-                             points: np.ndarray) -> np.ndarray:
-    """
-    calculate the distance of a point and a set of points
-    @param point:     a point, marked as A, with shape (3, )
-    @param points:    a set of points, marked as B, with shape (n, 3, )
-    @return  the distance between A and each point in B with shape (n, )
-    """
-
-    # ignore the normals if any
-    assert 1 == len(point.shape), _logger.error(
-        f'Wrong shape of input point, expected 1 dimensional, but {len(point.shape)} detected.')
-    assert 2 == len(points.shape), _logger.error(
-        f'Wrong shape of input points, expected 2 dimensional, but {len(points.shape)} detected.')
-    point, points = point.astype(np.float)[:3], points.astype(np.float)[:, :3]
-    return np.linalg.norm(points - point, axis=-1)
-
-
 def distance_cloud_to_cloud(cloud_1: np.ndarray,
                             cloud_2: np.ndarray,
                             normalize: bool = True) -> np.ndarray:
@@ -100,14 +82,23 @@ def distance_cloud_to_cloud(cloud_1: np.ndarray,
     @param cloud_2: a set of points, marked as B, with shape (nb, 3, )
     @return: the distance of each point in A and each point in B, with shape (na, nb)
     """
-    distance_a_to_b = np.array([])
-    for point in cloud_1:
-        distance_each = distance_point_to_points(point, cloud_2)
-        distance_a_to_b = np.concatenate([distance_a_to_b, distance_each])
+    cloud_1, cloud_2 = to_numpy(cloud_1), to_numpy(cloud_2)
+    assert 2 == len(cloud_1.shape), _logger.error(
+        f'Wrong shape of input points, expected 2 dimensional, but {len(cloud_1.shape)} detected.')
+    assert 2 == len(cloud_2.shape), _logger.error(
+        f'Wrong shape of input points, expected 2 dimensional, but {len(cloud_2.shape)} detected.')
+
+    m = cloud_1.shape[0]; n = cloud_2.shape[0]
+    # broadcast to (mn, 3)
+    a = cloud_1.repeat(n, axis=0)
+    b = np.tile(cloud_2, (m, 1))
+
+    # distance is now (mn, 1)
+    distance_a_to_b = np.linalg.norm(a - b, axis=1).reshape(m, n)
+
     if not normalize:
-        return distance_a_to_b.reshape(cloud_1.shape[0], cloud_2.shape[0])
+        return distance_a_to_b
     else:
-        distance_a_to_b = distance_a_to_b.reshape(cloud_1.shape[0], cloud_2.shape[0])
         max_ = distance_a_to_b.max(axis=1)
         distance = (distance_a_to_b.T / max_).T
         return distance
@@ -256,6 +247,7 @@ def summarize_metrics(metrics: dict, eval_mode=False):
         if k.endswith('mse'):
             summarized[k[:-3] + 'rmse'] = np.sqrt(np.mean(metrics[k]))
         elif k.startswith('err'):
+            print(metrics[k])
             summarized[k + '_mean'] = np.mean(metrics[k])
             summarized[k + '_rmse'] = np.sqrt(np.mean(metrics[k] ** 2))
         else:
